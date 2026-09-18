@@ -1,0 +1,58 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master, dev ]
+  pull_request:
+    branches: [ main, master, dev ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10.20.0
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: pnpm prisma generate
+
+      - name: Type Check
+        run: pnpm typecheck
+
+      - name: Next.js Build Check
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/test?schema=public"
+          DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/test?schema=public"
+          JWT_SECRET: "ci-dummy-jwt-secret-min-32-chars-long"
+          ADMIN_WHITELIST_EMAILS: "admin@example.com"
+          GOOGLE_CLIENT_EMAIL: "dummy@dummy.iam.gserviceaccount.com"
+          GOOGLE_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC...\n-----END PRIVATE KEY-----"
+          GOOGLE_CALENDAR_ID: "dummy@import.calendar.google.com"
+        run: pnpm build

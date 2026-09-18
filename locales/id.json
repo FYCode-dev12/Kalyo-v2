@@ -1,0 +1,61 @@
+{
+  "common": {
+    "title": "KALYO",
+    "subtitle": "Personal Scheduling & Calendar",
+    "loading": "Memuat...",
+    "error": "Terjadi kesalahan",
+    "save": "Simpan",
+    "cancel": "Batal",
+    "close": "Tutup",
+    "submit": "Kirim",
+    "submitting": "Mengirim...",
+    "success": "Berhasil",
+    "back": "Kembali",
+    "language": "Bahasa"
+  },
+  "calendar": {
+    "title": "Jadwal Personal & Ketersediaan",
+    "today": "Hari Ini",
+    "month": "Bulan",
+    "week": "Minggu",
+    "day": "Hari",
+    "busy": "Sibuk",
+    "available": "Tersedia",
+    "requestAppointment": "Buat Janji Temu",
+    "selectSlot": "Pilih Slot Waktu",
+    "noAvailableSlots": "Tidak ada slot waktu tersedia pada tanggal ini.",
+    "holiday": "Hari Libur",
+    "nonWorkday": "Hari Libur Kerja"
+  },
+  "form": {
+    "title": "Formulir Permintaan Janji Temu",
+    "subtitle": "Isi data diri Anda untuk mengajukan janji temu",
+    "name": "Nama Lengkap",
+    "namePlaceholder": "Contoh: Budi Santoso",
+    "email": "Alamat Email",
+    "emailPlaceholder": "budi@example.com",
+    "phone": "Nomor WhatsApp / HP (Opsional)",
+    "phonePlaceholder": "081234567890",
+    "purpose": "Keperluan / Catatan Singkat",
+    "purposePlaceholder": "Jelaskan keperluan janji temu...",
+    "selectedTime": "Waktu yang Dipilih",
+    "agreeTerms": "Saya menyetujui Syarat & Ketentuan",
+    "readTerms": "Baca Syarat & Ketentuan",
+    "submitRequest": "Kirim Permintaan Janji Temu",
+    "successTitle": "Permintaan Berhasil Dikirim!",
+    "successMessage": "Permintaan janji temu Anda telah diterima dan sedang menunggu persetujuan.",
+    "statusTokenText": "Kode Pelacakan Status Anda:"
+  },
+  "terms": {
+    "title": "Syarat & Ketentuan Pengajuan Janji Temu",
+    "section1Title": "1. Sifat Permintaan",
+    "section1Desc": "Pengajuan janji temu bersifat permintaan (request) dan BELUM terkonfirmasi sampai pemilik kalender memberikan persetujuan.",
+    "section2Title": "2. Batas Notice",
+    "section2Desc": "Permintaan harus diajukan minimal 24 jam sebelum waktu yang dipilih.",
+    "section3Title": "3. Kebijakan Pembatalan",
+    "section3Desc": "Pemilik kalender berhak menolak atau membatalkan permintaan tanpa pemberitahuan sebelumnya jika ada keperluan mendesak.",
+    "section4Title": "4. Kerahasiaan Data",
+    "section4Desc": "Data nama, email, dan kontak Anda hanya digunakan untuk keperluan konfirmasi janji temu.",
+    "acceptButton": "Saya Memahami & Menyetujui"
+  }
+}

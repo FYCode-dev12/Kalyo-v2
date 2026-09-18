@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum AppointmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model CalendarSource {
+  id               String   @id @default(uuid())
+  googleCalendarId String   @unique
+  displayName      String
+  color            String
+  showTitle        Boolean  @default(false)
+  showDescription  Boolean  @default(false)
+  isBookingTarget  Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model BusinessRule {
+  id              String   @id @default(uuid())
+  workStartTime   String
+  workEndTime     String
+  workdays        Int[]
+  minNoticeHours  Int      @default(24)
+  slotDurationMin Int      @default(30)
+  updatedAt       DateTime @updatedAt
+}
+
+model Holiday {
+  id     String   @id @default(uuid())
+  date   DateTime @db.Date
+  reason String?
+
+  @@unique([date])
+}
+
+model AppointmentRequest {
+  id             String            @id @default(uuid())
+  requesterName  String
+  requesterEmail String
+  requesterPhone String?
+  purpose        String?
+  startDatetime  DateTime
+  endDatetime    DateTime
+  status         AppointmentStatus @default(PENDING)
+  statusToken    String            @unique @default(uuid())
+  googleEventId  String?
+  rejectReason   String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
+
+model NotificationLog {
+  id                   String   @id @default(uuid())
+  appointmentRequestId String
+  type                 String
+  status               String
+  sentAt               DateTime @default(now())
+}

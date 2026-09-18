@@ -1,0 +1,72 @@
+{
+  "common": {
+    "title": "KALYO",
+    "subtitle": "Personal Scheduling & Calendar",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "submit": "Submit",
+    "submitting": "Submitting...",
+    "success": "Success",
+    "back": "Back",
+    "language": "Language"
+  },
+  "calendar": {
+    "title": "Personal Schedule & Availability",
+    "today": "Today",
+    "month": "Month",
+    "week": "Week",
+    "day": "Day",
+    "busy": "Busy",
+    "available": "Available",
+    "requestAppointment": "Book Appointment",
+    "selectSlot": "Select Time Slot",
+    "noAvailableSlots": "No available slots on this date.",
+    "holiday": "Holiday",
+    "nonWorkday": "Non-Working Day"
+  },
+  "form": {
+    "title": "Appointment Request Form",
+    "subtitle": "Fill in your details to request an appointment",
+    "name": "Full Name",
+    "namePlaceholder": "e.g., John Doe",
+    "email": "Email Address",
+    "emailPlaceholder": "john@example.com",
+    "phone": "WhatsApp / Mobile (Optional)",
+    "phonePlaceholder": "081234567890",
+    "purpose": "Purpose / Short Note",
+    "purposePlaceholder": "Describe your appointment purpose...",
+    "selectedTime": "Selected Time",
+    "agreeTerms": "I accept the Terms & Conditions",
+    "readTerms": "Read Terms & Conditions",
+    "submitRequest": "Submit Appointment Request",
+    "successTitle": "Request Sent Successfully!",
+    "successMessage": "Your appointment request has been received and is pending approval.",
+    "statusTokenText": "Your Status Tracking Code:"
+  },
+  "terms": {
+    "title": "Terms & Conditions for Appointment Requests",
+    "section1Title": "1. Nature of Request",
+    "section1Desc": "Appointment requests are preliminary and NOT confirmed until the calendar owner provides approval.",
+    "section2Title": "2. Notice Period",
+    "section2Desc": "Requests must be submitted at least 24 hours before the desired time slot.",
+    "section3Title": "3. Cancellation Policy",
+    "section3Desc": "The calendar owner reserves the right to reject or cancel requests without prior notice in case of urgent matters.",
+    "section4Title": "4. Data Privacy",
+    "section4Desc": "Your name, email, and contact data are used solely for appointment confirmation purposes.",
+    "acceptButton": "I Understand & Accept"
+  },
+  "admin": {
+    "dashboard": "Admin Dashboard",
+    "pendingRequests": "Pending Requests",
+    "noRequests": "No pending appointment requests",
+    "timeSlot": "Time",
+    "approve": "Approve",
+    "reject": "Reject",
+    "reason": "Reason",
+    "confirmed": "Confirmed",
+    "rejectReason": "Enter rejection reason"
+  }
+}
