@@ -1,92 +1,50 @@
-/** 
- * Rate Limiter Configuration
- * Dual-mode: In-memory (fallback) + Upstash Redis (production)
- */
-
+/** Distributed rate limiting with a bounded in-memory fallback. */
 import { Redis } from '@upstash/redis';
 
-// Upstash Redis client
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
-  ? new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    })
+  ? new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
   : null;
 
-// In-memory fallback storage
-interface RateLimitEntry {
-  count: number;
-  resetTime: number;
-}
-const memoryStore = new Map<string, RateLimitEntry>();
-
-// Config
-const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
-const RATE_LIMIT_MAX = 10; // 10 requests per window
-
-export function getClientIP(request: { headers: Headers }): string {
-  // Try X-Forwarded-For first (for reverse proxies)
-  const forwardedFor = request.headers.get('x-forwarded-for');
-  if (forwardedFor) {
-    const ips = forwardedFor.split(',');
-    return ips[0].trim();
-  }
-  
-  // Try CF-Connecting-IP (Cloudflare)
-  const cfIp = request.headers.get('cf-connecting-ip');
-  if (cfIp) return cfIp;
-  
-  // Fallback
-  return request.headers.get('x-real-ip') || '127.0.0.1';
-}
-
-export async function checkRateLimit(request: { headers: Headers }): Promise<{
+interface RateLimitResult {
   allowed: boolean;
   remaining: number;
   resetTime: number;
-}> {
-  const ip = getClientIP(request);
+}
+interface RateLimitEntry { count: number; resetTime: number }
+const memoryStore = new Map<string, RateLimitEntry>();
+const WINDOW_MS = 60_000;
+const MAX_ENTRIES = 10_000;
+
+export function getClientIP(request: { headers: Headers }): string {
+  return request.headers.get('cf-connecting-ip') || request.headers.get('x-real-ip') || request.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1';
+}
+
+export async function checkRateLimit(request: { headers: Headers }, scope: string, limit: number): Promise<RateLimitResult> {
+  const key = `ratelimit:${scope}:${getClientIP(request)}`;
   const now = Date.now();
-  
-  // Try Upstash Redis first
   if (redis) {
     try {
-      const key = `ratelimit:${ip}`;
-      const data = await redis.get<RateLimitEntry>(key);
-      
-      let entry: RateLimitEntry;
-      if (!data || data.resetTime < now) {
-        entry = { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS };
-        await redis.set(key, entry, { ex: RATE_LIMIT_WINDOW_MS / 1000 });
-      } else {
-        entry = data;
-        entry.count += 1;
-        await redis.set(key, entry);
-      }
-      
-      const remaining = Math.max(0, RATE_LIMIT_MAX - entry.count);
-      const resetTime = entry.resetTime;
-      const allowed = entry.count <= RATE_LIMIT_MAX;
-      
-      return { allowed, remaining, resetTime };
-    } catch (err) {
-      console.warn('[RateLimit] Redis failed, falling back to memory:', err);
+      const count = await redis.incr(key);
+      if (count === 1) await redis.expire(key, Math.ceil(WINDOW_MS / 1000));
+      const resetTime = now + WINDOW_MS;
+      return { allowed: count <= limit, remaining: Math.max(0, limit - count), resetTime };
+    } catch (error) {
+      console.warn('[RateLimit] Redis unavailable, using bounded memory fallback', error);
     }
   }
-  
-  // Fallback to in-memory
-  let entry = memoryStore.get(ip);
-  
-  if (!entry || entry.resetTime < now) {
-    entry = { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS };
-    memoryStore.set(ip, entry);
-  } else {
-    entry.count += 1;
+  if (memoryStore.size > MAX_ENTRIES) {
+    for (const [entryKey, entry] of memoryStore) if (entry.resetTime < now) memoryStore.delete(entryKey);
   }
-  
-  const remaining = Math.max(0, RATE_LIMIT_MAX - entry.count);
-  const resetTime = entry.resetTime;
-  const allowed = entry.count <= RATE_LIMIT_MAX;
-  
-  return { allowed, remaining, resetTime };
+  const current = memoryStore.get(key);
+  const entry = !current || current.resetTime <= now ? { count: 1, resetTime: now + WINDOW_MS } : { count: current.count + 1, resetTime: current.resetTime };
+  memoryStore.set(key, entry);
+  return { allowed: entry.count <= limit, remaining: Math.max(0, limit - entry.count), resetTime: entry.resetTime };
+}
+
+export function rateLimitResponse(result: RateLimitResult): Response | null {
+  if (result.allowed) return null;
+  return new Response(JSON.stringify({ error: 'Terlalu banyak permintaan. Coba lagi nanti.' }), {
+    status: 429,
+    headers: { 'Content-Type': 'application/json', 'Retry-After': String(Math.max(1, Math.ceil((result.resetTime - Date.now()) / 1000))) },
+  });
 }

@@ -5,9 +5,13 @@ import { fetchMergedEvents } from '@/lib/google-calendar';
 import { getAvailableSlots } from '@/lib/availability';
 import { formatInTimeZone } from 'date-fns-tz';
 import type { CalendarSourceConfig } from '@/types/calendar';
+import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimit = await checkRateLimit(request, 'appointment-create', 5);
+    const limited = rateLimitResponse(rateLimit);
+    if (limited) return limited;
     const body = await request.json();
 
     // 1. Validate payload with Zod

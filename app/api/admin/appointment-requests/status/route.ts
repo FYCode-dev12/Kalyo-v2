@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { createCalendarEvent } from '@/lib/google-calendar';
 import { isAdminAuthenticated } from '@/lib/admin-auth';
 import { sendAppointmentStatusEmail } from '@/lib/email';
+import { writeAuditLog } from '@/lib/audit';
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -55,6 +56,7 @@ export async function PATCH(request: NextRequest) {
     if (!updatedRequest) {
       return NextResponse.json({ error: 'Request not found after update' }, { status: 404 });
     }
+    await writeAuditLog({ action: `APPOINTMENT_${status}`, entityType: 'AppointmentRequest', entityId: id, metadata: { status } });
 
     // Sync with Google Calendar if approved
     let calendarSynced = false;

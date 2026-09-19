@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdminAuthenticated } from '@/lib/admin-auth';
 import { sendAppointmentStatusEmail } from '@/lib/email';
+import { writeAuditLog } from '@/lib/audit';
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,6 +43,7 @@ export async function POST(request: NextRequest) {
         sentAt: new Date(),
       },
     });
+    await writeAuditLog({ action: 'EMAIL_RETRY', entityType: 'AppointmentRequest', entityId: appointment.id, metadata: { success: result.success } });
 
     return NextResponse.json({
       success: result.success,

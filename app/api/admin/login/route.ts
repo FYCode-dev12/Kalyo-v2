@@ -1,7 +1,11 @@
 import { cookies } from 'next/headers';
 import { createAdminToken } from '@/lib/admin-auth';
+import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
+  const rateLimit = await checkRateLimit(request, 'admin-login', 5);
+  const limited = rateLimitResponse(rateLimit);
+  if (limited) return limited;
   const body = await request.json().catch(() => null);
   const email = typeof body?.email === 'string' ? body.email.trim() : '';
   const token = typeof body?.token === 'string' ? body.token : '';
