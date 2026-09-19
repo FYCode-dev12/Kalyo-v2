@@ -82,7 +82,11 @@ export async function sendAppointmentStatusEmail(params: {
     console.warn(`[EmailService] SMTP credentials missing. Mocking email send to ${to}:`);
     console.log(`[EmailService] Subject: ${subject}`);
     console.log(`[EmailService] Body Preview:\n${html.replace(/<[^>]*>/g, '').slice(0, 300)}...`);
-    return { success: true, mocked: true };
+    return {
+      success: false,
+      mocked: true,
+      error: new Error('SMTP credentials are not configured'),
+    };
   }
 
   try {
