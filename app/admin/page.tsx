@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { isAdminAuthenticated } from '@/lib/admin-auth';
+import { AppointmentRequestsPanel } from '@/components/dashboard/AppointmentRequestsPanel';
 
 export default async function AdminPage() {
   const authenticated = await isAdminAuthenticated();
@@ -9,32 +10,22 @@ export default async function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">
-          Admin Dashboard
-        </h1>
-
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          <div className="px-4 py-5 sm:p-6">
-            <p className="text-gray-700 mb-4">
-              Admin session active
-            </p>
-            <p className="text-gray-700 mb-4">
-              This is the protected admin area.
-            </p>
-
-            <form action="/api/admin/logout" method="post">
-              <button
-                type="submit"
-                className="text-red-600 hover:text-red-800 underline"
-              >
-                Sign out
-              </button>
-            </form>
+    <main className="min-h-screen bg-slate-50">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <header className="mb-8 flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">KALYO Admin</p>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
           </div>
-        </div>
+          <form action="/api/admin/logout" method="post">
+            <button type="submit" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-100">
+              Keluar
+            </button>
+          </form>
+        </header>
+
+        <AppointmentRequestsPanel />
       </div>
-    </div>
+    </main>
   );
 }
