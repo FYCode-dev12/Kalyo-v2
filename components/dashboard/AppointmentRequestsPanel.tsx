@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
 type AppointmentStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 type FilterStatus = 'ALL' | AppointmentStatus;
@@ -22,6 +22,7 @@ interface AppointmentRequest {
 
 interface ApiResponse {
   data?: AppointmentRequest[];
+  meta?: { page: number; pageSize: number; total: number; totalPages: number; counts: { ALL: number; PENDING: number; APPROVED: number; REJECTED: number } };
   error?: string;
 }
 
@@ -65,6 +66,10 @@ function formatDateRange(start: string, end: string) {
 export function AppointmentRequestsPanel() {
   const [requests, setRequests] = useState<AppointmentRequest[]>([]);
   const [filter, setFilter] = useState<FilterStatus>('ALL');
+  const [search, setSearch] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<ApiResponse['meta']>();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +78,8 @@ export function AppointmentRequestsPanel() {
   const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [lastAction, setLastAction] = useState<Record<string, ActionResult>>({});
+  const [retryingEmailId, setRetryingEmailId] = useState<string | null>(null);
+  const [emailRetryResult, setEmailRetryResult] = useState<Record<string, boolean>>({});
 
   const loadRequests = useCallback(async (isRefresh = false) => {
     setError(null);
@@ -80,19 +87,23 @@ export function AppointmentRequestsPanel() {
     else setLoading(true);
 
     try {
-      const response = await fetch('/api/admin/appointment-requests', {
+      const params = new URLSearchParams({ page: String(page), pageSize: '20' });
+      if (filter !== 'ALL') params.set('status', filter);
+      if (appliedSearch) params.set('q', appliedSearch);
+      const response = await fetch(`/api/admin/appointment-requests?${params.toString()}`, {
         cache: 'no-store',
       });
       const body = (await response.json()) as ApiResponse;
       if (!response.ok) throw new Error(body.error || 'Gagal mengambil permintaan janji temu.');
       setRequests(body.data || []);
+      setMeta(body.meta);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal mengambil permintaan janji temu.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [appliedSearch, filter, page]);
 
   useEffect(() => {
     // Initial data load is an external API synchronization for this client panel.
@@ -100,17 +111,39 @@ export function AppointmentRequestsPanel() {
     void loadRequests();
   }, [loadRequests]);
 
-  const filteredRequests = useMemo(
-    () => filter === 'ALL' ? requests : requests.filter((request) => request.status === filter),
-    [filter, requests]
-  );
+  const filteredRequests = requests;
 
-  const counts = useMemo(() => ({
-    ALL: requests.length,
-    PENDING: requests.filter((request) => request.status === 'PENDING').length,
-    APPROVED: requests.filter((request) => request.status === 'APPROVED').length,
-    REJECTED: requests.filter((request) => request.status === 'REJECTED').length,
-  }), [requests]);
+  function changeFilter(nextFilter: FilterStatus) {
+    setFilter(nextFilter);
+    setPage(1);
+  }
+
+  function submitSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAppliedSearch(search.trim());
+    setPage(1);
+  }
+
+  const counts = meta?.counts || { ALL: 0, PENDING: 0, APPROVED: 0, REJECTED: 0 };
+
+  async function retryEmail(request: AppointmentRequest) {
+    setActionError(null);
+    setRetryingEmailId(request.id);
+    try {
+      const response = await fetch('/api/admin/appointment-requests/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: request.id }),
+      });
+      const body = (await response.json()) as { error?: string; emailSent?: boolean };
+      if (!response.ok) throw new Error(body.error || 'Email belum berhasil dikirim.');
+      setEmailRetryResult((current) => ({ ...current, [request.id]: body.emailSent === true }));
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Email belum berhasil dikirim.');
+    } finally {
+      setRetryingEmailId(null);
+    }
+  }
 
   async function updateStatus(request: AppointmentRequest, status: 'APPROVED' | 'REJECTED') {
     if (status === 'REJECTED' && !rejectReasons[request.id]?.trim()) {
@@ -164,6 +197,10 @@ export function AppointmentRequestsPanel() {
           <a href="/admin/analytics" className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50">
             Analytics
           </a>
+          <form onSubmit={submitSearch} className="flex gap-2">
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari nama, email, keperluan" className="w-56 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-500" />
+            <button type="submit" className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cari</button>
+          </form>
           <button type="button" onClick={() => void loadRequests(true)} disabled={refreshing} className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60">
             {refreshing ? 'Memuat...' : 'Refresh'}
           </button>
@@ -172,7 +209,7 @@ export function AppointmentRequestsPanel() {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((status) => (
-          <button key={status} type="button" onClick={() => setFilter(status)} className={`rounded-xl border p-4 text-left transition ${filter === status ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'}`}>
+          <button key={status} type="button" onClick={() => changeFilter(status)} className={`rounded-xl border p-4 text-left transition ${filter === status ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'}`}>
             <span className="block text-xs font-semibold uppercase tracking-wide opacity-70">{status === 'ALL' ? 'Semua' : statusLabels[status]}</span>
             <span className="mt-1 block text-2xl font-bold">{counts[status]}</span>
           </button>
@@ -227,6 +264,14 @@ export function AppointmentRequestsPanel() {
                       {request.rejectReason && <div className="sm:col-span-2"><dt className="font-semibold text-slate-500">Alasan penolakan</dt><dd className="mt-1 whitespace-pre-wrap text-rose-700">{request.rejectReason}</dd></div>}
                       {request.googleEventId && <div className="sm:col-span-2"><dt className="font-semibold text-slate-500">Google Event ID</dt><dd className="mt-1 break-all font-mono text-xs text-slate-700">{request.googleEventId}</dd></div>}
                     </dl>
+                    {request.status !== 'PENDING' && (
+                      <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
+                        <button type="button" onClick={() => void retryEmail(request)} disabled={retryingEmailId === request.id} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">
+                          {retryingEmailId === request.id ? 'Mengirim...' : 'Kirim ulang email'}
+                        </button>
+                        {emailRetryResult[request.id] && <span className="text-sm font-medium text-emerald-700">Email berhasil dikirim ulang.</span>}
+                      </div>
+                    )}
 
                     {request.status === 'PENDING' && (
                       <div className="mt-5 space-y-3 border-t border-slate-100 pt-4">
@@ -243,6 +288,16 @@ export function AppointmentRequestsPanel() {
               </article>
             );
           })}
+        </div>
+      )}
+
+      {meta && meta.totalPages > 1 && (
+        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
+          <span className="text-slate-500">Halaman {meta.page} dari {meta.totalPages} · {meta.total} hasil</span>
+          <div className="flex gap-2">
+            <button type="button" disabled={page <= 1 || loading} onClick={() => setPage((current) => Math.max(1, current - 1))} className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium disabled:cursor-not-allowed disabled:opacity-40">Sebelumnya</button>
+            <button type="button" disabled={page >= meta.totalPages || loading} onClick={() => setPage((current) => current + 1)} className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium disabled:cursor-not-allowed disabled:opacity-40">Berikutnya</button>
+          </div>
         </div>
       )}
     </section>

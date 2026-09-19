@@ -17,11 +17,14 @@ export default async function AdminPage() {
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">KALYO Admin</p>
             <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
           </div>
-          <form action="/api/admin/logout" method="post">
-            <button type="submit" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-100">
-              Keluar
-            </button>
-          </form>
+          <div className="flex items-center gap-2">
+            <a href="/admin/settings" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-100">Pengaturan</a>
+            <form action="/api/admin/logout" method="post">
+              <button type="submit" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-100">
+                Keluar
+              </button>
+            </form>
+          </div>
         </header>
 
         <AppointmentRequestsPanel />

@@ -11,11 +11,19 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { id, status, rejectReason } = body;
+    const body = await request.json().catch(() => null);
+    const id = typeof body?.id === 'string' ? body.id : '';
+    const status = body?.status;
+    const rejectReason = typeof body?.rejectReason === 'string' ? body.rejectReason.trim() : '';
 
     if (!id || !status || !['APPROVED', 'REJECTED'].includes(status)) {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    }
+    if (status === 'REJECTED' && !rejectReason) {
+      return NextResponse.json({ error: 'Reject reason is required' }, { status: 400 });
+    }
+    if (rejectReason.length > 1000) {
+      return NextResponse.json({ error: 'Reject reason is too long' }, { status: 400 });
     }
 
     // Get existing request
@@ -31,14 +39,22 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Request already processed' }, { status: 400 });
     }
 
-    // Update status in DB
-    const updatedRequest = await prisma.appointmentRequest.update({
-      where: { id },
+    // Claim the pending request atomically so two admins cannot process it twice.
+    const claimed = await prisma.appointmentRequest.updateMany({
+      where: { id, status: 'PENDING' },
       data: {
         status,
-        rejectReason: status === 'REJECTED' ? (rejectReason || null) : null,
+        rejectReason: status === 'REJECTED' ? rejectReason : null,
       },
     });
+    if (claimed.count !== 1) {
+      return NextResponse.json({ error: 'Request sudah diproses oleh admin lain' }, { status: 409 });
+    }
+
+    const updatedRequest = await prisma.appointmentRequest.findUnique({ where: { id } });
+    if (!updatedRequest) {
+      return NextResponse.json({ error: 'Request not found after update' }, { status: 404 });
+    }
 
     // Sync with Google Calendar if approved
     let calendarSynced = false;
