@@ -5,15 +5,13 @@ const prisma = new PrismaClient();
 async function seed() {
   console.log('Seeding database...');
 
-  // 1. Calendar Sources (7 calendars)
+  // 1. Calendar Sources (5 calendars with IDs from calendar id.md)
   const calendars = [
-    { googleCalendarId: 'primary', displayName: 'Primary', color: '#1769aa', showTitle: false, showDescription: false, isBookingTarget: true },
-    { googleCalendarId: 'family', displayName: 'Family', color: '#d93025', showTitle: false, showDescription: false, isBookingTarget: false },
-    { googleCalendarId: 'kuliah', displayName: 'Kuliah', color: '#f9ab00', showTitle: false, showDescription: false, isBookingTarget: false },
-    { googleCalendarId: 'pmk', displayName: 'PMK', color: '#34a853', showTitle: false, showDescription: false, isBookingTarget: false },
-    { googleCalendarId: 'tasks', displayName: 'Tasks', color: '#9b4de5', showTitle: false, showDescription: false, isBookingTarget: false },
-    { googleCalendarId: 'ulang-tahun', displayName: 'Ulang Tahun', color: '#ff6d00', showTitle: false, showDescription: false, isBookingTarget: false },
-    { googleCalendarId: 'ys-activity', displayName: 'YS Activity', color: '#009688', showTitle: false, showDescription: false, isBookingTarget: false },
+    { googleCalendarId: 'febrianyoel100@gmail.com', displayName: 'Primary', color: '#1769aa', showTitle: false, showDescription: false, isBookingTarget: true },
+    { googleCalendarId: 'family17640158143981463920@group.calendar.google.com', displayName: 'Family', color: '#d93025', showTitle: false, showDescription: false, isBookingTarget: false },
+    { googleCalendarId: '6d67eeda71aeb8f82b447bc212dcff30bac36c2bc35711516ffa73f053433b10@group.calendar.google.com', displayName: 'Kuliah', color: '#f9ab00', showTitle: false, showDescription: false, isBookingTarget: false },
+    { googleCalendarId: 'bbfdf038ac699338ea27f3e8b47a6514a61580753e20255c50bc58aa9c44aa4f@group.calendar.google.com', displayName: 'PMK', color: '#34a853', showTitle: false, showDescription: false, isBookingTarget: false },
+    { googleCalendarId: 'c3b52625db9981b4cd12438b89e3001080be56199cc076cee111f080e69a80f7@group.calendar.google.com', displayName: 'YS Activity', color: '#009688', showTitle: false, showDescription: false, isBookingTarget: false },
   ];
 
   for (const cal of calendars) {

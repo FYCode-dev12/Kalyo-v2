@@ -1,10 +1,8 @@
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { createAdminToken, isAdminAuthenticated } from '@/lib/admin-auth';
+import { isAdminAuthenticated } from '@/lib/admin-auth';
 
 export default async function AdminPage() {
-  const request = { cookies: async () => await cookies() } as any;
-  const authenticated = await isAdminAuthenticated(request);
+  const authenticated = await isAdminAuthenticated();
 
   if (!authenticated) {
     redirect('/login');

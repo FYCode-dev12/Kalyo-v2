@@ -8,8 +8,6 @@ import { prisma } from '@/lib/prisma';
 import { fetchMergedEvents } from '@/lib/google-calendar';
 import type { CalendarSourceConfig } from '@/types/calendar';
 
-const SYNC_INTERVAL_MIN = 30; // Sync every 30 minutes
-
 export async function syncCalendarJob() {
   console.log(`[SyncJob] Starting calendar sync...`);
 
@@ -43,7 +41,7 @@ export async function syncCalendarJob() {
 
     // Sync to DB
     let createdCount = 0;
-    let updatedCount = 0;
+    const updatedCount = 0;
 
     for (const event of googleEvents) {
       if (!event.rawGoogleId || !event.isMasked) continue;

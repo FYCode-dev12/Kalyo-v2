@@ -11,10 +11,8 @@ export function getGoogleCalendarClient() {
     throw new Error('Google Service Account credentials missing in environment variables');
   }
 
-  // Ensure escaped newlines in private key are converted properly
-  if (privateKey.includes('\\\\n')) {
-    privateKey = privateKey.replace(/\\\\n/g, '\n');
-  }
+  // Environment variables commonly store PEM line breaks as literal \\n.
+  privateKey = privateKey.replace(/\\n/g, '\n');
 
   const auth = new google.auth.JWT({
     email,

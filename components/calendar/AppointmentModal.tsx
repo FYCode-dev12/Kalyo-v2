@@ -74,6 +74,8 @@ export function AppointmentModal({ isOpen, selectedDate, onClose }: AppointmentM
 
   useEffect(() => {
     if (isOpen && selectedDate) {
+      // Fetching slots updates async loading/data state for this modal.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchSlots(selectedDate);
       reset();
       setTermsAccepted(false);

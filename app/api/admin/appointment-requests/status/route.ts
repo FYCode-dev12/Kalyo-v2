@@ -6,7 +6,7 @@ import { sendAppointmentStatusEmail } from '@/lib/email';
 
 export async function PATCH(request: NextRequest) {
   try {
-    const authenticated = await isAdminAuthenticated(request);
+    const authenticated = await isAdminAuthenticated();
     if (!authenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -36,7 +36,7 @@ export async function PATCH(request: NextRequest) {
       where: { id },
       data: {
         status,
-        rejectReason: status === 'REJECTED' ? rejectReason : null,
+        rejectReason: status === 'REJECTED' ? (rejectReason || null) : null,
       },
     });
 
@@ -50,9 +50,7 @@ export async function PATCH(request: NextRequest) {
 
         if (primaryCalendar) {
           const startIso = new Date(updatedRequest.startDatetime).toISOString();
-          const endIso = new Date(
-            new Date(updatedRequest.startDatetime).getTime() + 60 * 60 * 1000
-          ).toISOString();
+          const endIso = new Date(updatedRequest.endDatetime).toISOString();
 
           const eventId = await createCalendarEvent({
             calendarId: primaryCalendar.googleCalendarId,
@@ -62,6 +60,11 @@ export async function PATCH(request: NextRequest) {
             endIso,
           });
 
+          await prisma.appointmentRequest.update({
+            where: { id: updatedRequest.id },
+            data: { googleEventId: eventId },
+          });
+          updatedRequest.googleEventId = eventId;
           console.log(`[Admin] Created event ${eventId} on Google Calendar for ${updatedRequest.id}`);
           calendarSynced = true;
         }

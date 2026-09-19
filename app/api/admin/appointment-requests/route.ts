@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdminAuthenticated } from '@/lib/admin-auth';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const authenticated = await isAdminAuthenticated(request);
+    const authenticated = await isAdminAuthenticated();
     if (!authenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

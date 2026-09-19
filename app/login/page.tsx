@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
 
 export default function LoginPage() {
   const { t } = useI18n();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [token, setToken] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -28,8 +30,8 @@ export default function LoginPage() {
         return;
       }
 
-      window.location.href = '/admin';
-    } catch (err) {
+      router.push('/admin');
+    } catch {
       setError('Network error');
     } finally {
       setLoading(false);

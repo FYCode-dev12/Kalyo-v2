@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { appointmentRequestSchema } from '@/lib/validations/appointment';
 import { fetchMergedEvents } from '@/lib/google-calendar';
+import { getAvailableSlots } from '@/lib/availability';
+import { formatInTimeZone } from 'date-fns-tz';
 import type { CalendarSourceConfig } from '@/types/calendar';
 
 export async function POST(request: NextRequest) {
@@ -23,24 +25,21 @@ export async function POST(request: NextRequest) {
     const data = validationResult.data;
     const reqStart = new Date(data.startDatetime);
     const reqEnd = new Date(data.endDatetime);
+    const dateStr = formatInTimeZone(reqStart, 'Asia/Jakarta', 'yyyy-MM-dd');
 
-    // 2. Check overlap in DB (PENDING or APPROVED)
-    const dbConflict = await prisma.appointmentRequest.findFirst({
-      where: {
-        status: { in: ['PENDING', 'APPROVED'] },
-        startDatetime: { lt: reqEnd },
-        endDatetime: { gt: reqStart },
-      },
-    });
-
-    if (dbConflict) {
+    // Re-validate that the submitted range is an actually available server slot.
+    const availability = await getAvailableSlots({ dateStr, timeZone: 'Asia/Jakarta' });
+    const requestedSlot = availability.slots.find(
+      (slot) => slot.startTime === reqStart.toISOString() && slot.endTime === reqEnd.toISOString()
+    );
+    if (!requestedSlot || !requestedSlot.available) {
       return NextResponse.json(
-        { error: 'Slot waktu yang dipilih sudah tidak tersedia (sudah dipesan).' },
+        { error: requestedSlot?.reason || 'Slot waktu yang dipilih tidak tersedia.' },
         { status: 409 }
       );
     }
 
-    // 3. Check overlap with Google Calendar
+    // 2. Check overlap with Google Calendar
     const calendarSources = await prisma.calendarSource.findMany();
     const calConfigs: CalendarSourceConfig[] = calendarSources.map((c) => ({
       id: c.id,
@@ -66,18 +65,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Create AppointmentRequest record in DB
-    const created = await prisma.appointmentRequest.create({
-      data: {
-        requesterName: data.requesterName,
-        requesterEmail: data.requesterEmail,
-        requesterPhone: data.requesterPhone || null,
-        purpose: data.purpose || null,
-        startDatetime: reqStart,
-        endDatetime: reqEnd,
-        status: 'PENDING',
-      },
-    });
+    // 4. Check and insert atomically to prevent double booking races.
+    const created = await prisma.$transaction(async (tx) => {
+      const dbConflict = await tx.appointmentRequest.findFirst({
+        where: {
+          status: { in: ['PENDING', 'APPROVED'] },
+          startDatetime: { lt: reqEnd },
+          endDatetime: { gt: reqStart },
+        },
+      });
+
+      if (dbConflict) {
+        throw new Error('SLOT_ALREADY_BOOKED');
+      }
+
+      return tx.appointmentRequest.create({
+        data: {
+          requesterName: data.requesterName,
+          requesterEmail: data.requesterEmail,
+          requesterPhone: data.requesterPhone || null,
+          purpose: data.purpose || null,
+          startDatetime: reqStart,
+          endDatetime: reqEnd,
+          status: 'PENDING',
+        },
+      });
+    }, { isolationLevel: 'Serializable', maxWait: 5000, timeout: 10000 });
 
     return NextResponse.json({
       success: true,
@@ -88,6 +101,13 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (err: unknown) {
+    if (err instanceof Error && err.message === 'SLOT_ALREADY_BOOKED') {
+      return NextResponse.json(
+        { error: 'Slot waktu yang dipilih sudah tidak tersedia (sudah dipesan).' },
+        { status: 409 }
+      );
+    }
+
     console.error('[API /api/appointment-requests] Error:', err);
     return NextResponse.json(
       { error: 'Gagal membuat permintaan janji temu.' },

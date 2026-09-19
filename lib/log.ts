@@ -56,8 +56,21 @@ export const logger: Logger = createLogger({
   ],
 });
 
-// Request logging middleware for Next.js
-export function requestLogger(req: any, res: any, next: any) {
+interface RequestLike {
+  method?: string;
+  url?: string;
+  ip?: string;
+  connection?: { remoteAddress?: string };
+  headers: Record<string, string | string[] | undefined>;
+}
+
+interface ResponseLike {
+  statusCode: number;
+  on(event: 'finish', listener: () => void): void;
+}
+
+// Request logging middleware for Node-compatible request/response objects
+export function requestLogger(req: RequestLike, res: ResponseLike, next: () => void) {
   const start = Date.now();
   
   res.on('finish', () => {
@@ -66,7 +79,7 @@ export function requestLogger(req: any, res: any, next: any) {
       url: req.url,
       status: res.statusCode,
       duration_ms: Date.now() - start,
-      ip: req.ip || req.connection.remoteAddress,
+      ip: req.ip || req.connection?.remoteAddress,
       userAgent: req.headers['user-agent'],
     });
   });

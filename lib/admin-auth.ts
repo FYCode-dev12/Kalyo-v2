@@ -2,7 +2,13 @@ import { cookies } from 'next/headers';
 import { SignJWT, jwtVerify } from 'jose';
 import { NextRequest, NextResponse } from 'next/server';
 
-const JWT_SECRET = new TextEncoder().encode(process.env.ADMIN_JWT_SECRET || 'admin-secret-change-me');
+function getJwtSecret(): Uint8Array {
+  const secret = process.env.ADMIN_JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error('ADMIN_JWT_SECRET wajib diatur dan minimal 32 karakter.');
+  }
+  return new TextEncoder().encode(secret);
+}
 
 interface AdminSession {
   email: string;
@@ -11,26 +17,23 @@ interface AdminSession {
 }
 
 export async function createAdminToken(email: string): Promise<string> {
-  const expiresAt = new Date();
-  expiresAt.setHours(expiresAt.getHours() + 24);
-
   return await new SignJWT({ email })
     .setProtectedHeader({ alg: 'HS256' })
     .setExpirationTime('24h')
     .setIssuedAt()
-    .sign(JWT_SECRET);
+    .sign(getJwtSecret());
 }
 
 export async function verifyAdminToken(token: string): Promise<AdminSession | null> {
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
+    const { payload } = await jwtVerify(token, getJwtSecret());
     return payload as unknown as AdminSession;
   } catch {
     return null;
   }
 }
 
-export async function isAdminAuthenticated(request: NextRequest): Promise<boolean> {
+export async function isAdminAuthenticated(): Promise<boolean> {
   const cookieStore = await cookies();
   const token = cookieStore.get('admin_session')?.value;
 
@@ -45,7 +48,7 @@ export async function isAdminAuthenticated(request: NextRequest): Promise<boolea
 
 export function adminProtectedRoute(handler: (req: NextRequest) => Promise<NextResponse>) {
   return async (req: NextRequest) => {
-    const authenticated = await isAdminAuthenticated(req);
+    const authenticated = await isAdminAuthenticated();
 
     if (!authenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { fetchMergedEvents } from '@/lib/google-calendar';
 import type { TimeSlot, AvailabilityParams } from '@/types/availability';
 import type { CalendarSourceConfig } from '@/types/calendar';
-import { toZonedTime, fromZonedTime, formatInTimeZone } from 'date-fns-tz';
+import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 
 const DEFAULT_TZ = 'Asia/Jakarta';
 
@@ -39,7 +39,6 @@ export async function getAvailableSlots(params: AvailabilityParams): Promise<{
   }
 
   // Construct start and end of day in target timezone
-  const dayStartZoned = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
   const startOfDayStr = `${dateStr}T00:00:00`;
   const endOfDayStr = `${dateStr}T23:59:59`;
 

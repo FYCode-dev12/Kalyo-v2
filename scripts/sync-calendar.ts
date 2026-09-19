@@ -55,7 +55,7 @@ async function syncCalendar() {
 
     // 4. Sync: Create/update events from Google Calendar to DB
     let createdCount = 0;
-    let updatedCount = 0;
+    const updatedCount = 0;
 
     for (const event of googleEvents) {
       if (!event.rawGoogleId || !event.isMasked) {

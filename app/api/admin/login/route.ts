@@ -1,11 +1,10 @@
 import { cookies } from 'next/headers';
 import { createAdminToken } from '@/lib/admin-auth';
-import { redirect } from 'next/navigation';
 
 export async function POST(request: Request) {
-  const formData = await request.formData();
-  const email = formData.get('email') as string;
-  const token = formData.get('token') as string;
+  const body = await request.json().catch(() => null);
+  const email = typeof body?.email === 'string' ? body.email.trim() : '';
+  const token = typeof body?.token === 'string' ? body.token : '';
 
   const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map((e) => e.trim().toLowerCase());
   const allowedTokens = (process.env.ADMIN_TOKENS || '').split(',');
@@ -32,5 +31,5 @@ export async function POST(request: Request) {
     path: '/',
   });
 
-  redirect('/admin');
+  return Response.json({ success: true });
 }

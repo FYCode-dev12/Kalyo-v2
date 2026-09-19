@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import idMessages from '@/locales/id.json';
 import enMessages from '@/locales/en.json';
 
@@ -22,14 +22,11 @@ const messagesMap: Record<Locale, Messages> = {
 const I18nContext = createContext<I18nContextType | undefined>(undefined);
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>('id');
-
-  useEffect(() => {
+  const [locale, setLocaleState] = useState<Locale>(() => {
+    if (typeof window === 'undefined') return 'id';
     const saved = localStorage.getItem('kalyo_locale') as Locale;
-    if (saved && (saved === 'id' || saved === 'en')) {
-      setLocaleState(saved);
-    }
-  }, []);
+    return saved === 'id' || saved === 'en' ? saved : 'id';
+  });
 
   const setLocale = (newLocale: Locale) => {
     setLocaleState(newLocale);

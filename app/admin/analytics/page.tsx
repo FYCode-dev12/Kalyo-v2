@@ -168,13 +168,15 @@ export default function AdminAnalytics() {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={(entry: any) => `${entry.name}: ${(entry.percent * 100).toFixed(0)}%`}
+                  label={(entry: { name?: string; percent?: number }) =>
+                    `${entry.name ?? ''}: ${((entry.percent ?? 0) * 100).toFixed(0)}%`
+                  }
                   outerRadius={100}
                   fill="#8884d8"
                   dataKey="value"
                   nameKey="name"
                 >
-                  {statusData.map((entry: any, index: number) => (
+                  {statusData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -219,7 +221,7 @@ export default function AdminAnalytics() {
                 </tr>
               </thead>
               <tbody>
-                {data.topUsers.map((user: any, idx: number) => (
+                {data.topUsers.map((user, idx) => (
                   <tr key={idx} className="border-b">
                     <td className="p-2">{user.email}</td>
                     <td className="text-right p-2">{user.totalRequests}</td>
