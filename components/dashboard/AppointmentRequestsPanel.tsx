@@ -25,6 +25,12 @@ interface ApiResponse {
   error?: string;
 }
 
+interface ActionResult {
+  status: 'APPROVED' | 'REJECTED';
+  calendarSynced: boolean;
+  emailSent: boolean;
+}
+
 const TIME_ZONE = 'Asia/Jakarta';
 
 const statusStyles: Record<AppointmentStatus, string> = {
@@ -66,6 +72,7 @@ export function AppointmentRequestsPanel() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [lastAction, setLastAction] = useState<Record<string, ActionResult>>({});
 
   const loadRequests = useCallback(async (isRefresh = false) => {
     setError(null);
@@ -128,6 +135,14 @@ export function AppointmentRequestsPanel() {
       const body = (await response.json()) as { error?: string; calendarSynced?: boolean; emailSent?: boolean };
       if (!response.ok) throw new Error(body.error || 'Gagal memperbarui status.');
 
+      setLastAction((current) => ({
+        ...current,
+        [request.id]: {
+          status,
+          calendarSynced: body.calendarSynced === true,
+          emailSent: body.emailSent === true,
+        },
+      }));
       await loadRequests(true);
       setExpandedId(request.id);
     } catch (err) {
@@ -198,6 +213,13 @@ export function AppointmentRequestsPanel() {
 
                 {expanded && (
                   <div className="border-t border-slate-100 px-5 pb-5 pt-4">
+                    {lastAction[request.id] && (
+                      <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-3 text-sm text-sky-900">
+                        <p className="font-semibold">Status berhasil diperbarui menjadi {statusLabels[lastAction[request.id].status]}.</p>
+                        <p className="mt-1">Google Calendar: {lastAction[request.id].calendarSynced ? 'event berhasil dibuat' : 'belum tersinkron (periksa konfigurasi/izin calendar)'}</p>
+                        <p>Email: {lastAction[request.id].emailSent ? 'berhasil dikirim' : 'belum terkirim (periksa konfigurasi SMTP)'}</p>
+                      </div>
+                    )}
                     <dl className="grid gap-4 text-sm sm:grid-cols-2">
                       <div><dt className="font-semibold text-slate-500">Telepon</dt><dd className="mt-1 text-slate-900">{request.requesterPhone || '—'}</dd></div>
                       <div><dt className="font-semibold text-slate-500">Diajukan</dt><dd className="mt-1 text-slate-900">{formatDateTime(request.createdAt)} WIB</dd></div>
