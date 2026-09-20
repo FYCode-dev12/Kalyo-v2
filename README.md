@@ -7,7 +7,7 @@ Next.js full-stack scheduling system with Google Calendar integration.
 - **Framework**: Next.js 16.3.4 (App Router, Turbopack)
 - **Database**: Supabase Postgres (free tier)
 - **ORM**: Prisma 6.4.1
-- **Authentication**: None (admin endpoint protected by email whitelist)
+- **Authentication**: Google OAuth 2.0 (only `febrianyoel100@gmail.com` is allowed)
 - **Calendar**: Google Calendar API (Service Account)
 - **Styling**: Tailwind CSS v4
 - **i18n**: Custom React Context (ID/EN)
@@ -25,12 +25,21 @@ DIRECT_URL=postgresql://postgres:password@db.hbbteaqfhuqjyfbuklcv.supabase.co:54
 GOOGLE_SERVICE_ACCOUNT_EMAIL=kalyo-85@kalyo-506619.iam.gserviceaccount.com
 GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."
 
-# Admin access (comma-separated emails)
-ADMIN_EMAILS=febrianyoel12@gmail.com
+# Admin session signing
+ADMIN_JWT_SECRET=your-32-char-secret-key-here
 
-# Auth secrets
-AUTH_SECRET=a8f7c6e5d4c3b2a1a8f7c6e5d4c3b2a1
-NEXTAUTH_SECRET=a8f7c6e5d4c3b2a1a8f7c6e5d4c3b2a1
+# Google OAuth 2.0
+GOOGLE_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_OAUTH_CLIENT_SECRET=your-client-secret
+GOOGLE_OAUTH_REDIRECT_URI=http://localhost:3000/api/auth/google/callback
+
+# OAuth consent screen must allow this admin account only:
+# febrianyoel100@gmail.com
+
+# Google OAuth callback route
+# /api/admin/google/callback
+
+# For production, set GOOGLE_OAUTH_REDIRECT_URI to the exact HTTPS callback URL.
 ```
 
 ## Run

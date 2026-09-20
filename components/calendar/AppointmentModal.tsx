@@ -127,8 +127,8 @@ export function AppointmentModal({ isOpen, selectedDate, onClose }: AppointmentM
 
   return (
     <>
-      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-        <div className="w-full max-w-xl rounded-2xl bg-surface p-6 shadow-xl border border-border max-h-[90vh] flex flex-col">
+      <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#081637]/55 p-4 backdrop-blur-md">
+        <div className="glass-panel-strong flex max-h-[90vh] w-full max-w-xl flex-col rounded-2xl p-6 shadow-2xl">
           {/* Header */}
           <div className="flex items-center justify-between pb-4 border-b border-border">
             <div>

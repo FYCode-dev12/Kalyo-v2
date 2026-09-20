@@ -10,6 +10,12 @@ function getJwtSecret(): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
+export const ADMIN_GOOGLE_EMAIL = 'febrianyoel100@gmail.com';
+
+export function getAllowedAdminEmails(): string[] {
+  return [ADMIN_GOOGLE_EMAIL];
+}
+
 interface AdminSession {
   email: string;
   iat: number;
@@ -42,8 +48,7 @@ export async function isAdminAuthenticated(): Promise<boolean> {
   const session = await verifyAdminToken(token);
   if (!session) return false;
 
-  const allowedEmails = (process.env.ADMIN_EMAILS || '').split(',').map((e) => e.trim().toLowerCase());
-  return allowedEmails.includes(session.email.toLowerCase());
+  return getAllowedAdminEmails().includes(session.email.toLowerCase());
 }
 
 export function adminProtectedRoute(handler: (req: NextRequest) => Promise<NextResponse>) {
