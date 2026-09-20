@@ -5,6 +5,11 @@ interface GoogleTokenResponse {
   access_token?: string;
   id_token?: string;
   error?: string;
+  error_description?: string;
+}
+
+function logOAuthFailure(stage: string, details: Record<string, string | number | undefined>) {
+  console.error(`[Google OAuth] ${stage}`, details);
 }
 
 interface GoogleUserInfo {
@@ -34,8 +39,11 @@ export async function GET(request: Request) {
 
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI || `${requestUrl.origin}/api/admin/google/callback`;
-  if (!clientId || !clientSecret) return redirectToLogin(request, 'Google OAuth belum dikonfigurasi.');
+  const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI || `${requestUrl.origin}/api/auth/google/callback`;
+  if (!clientId || !clientSecret) {
+    logOAuthFailure('missing-config', { hasClientId: Number(Boolean(clientId)), hasClientSecret: Number(Boolean(clientSecret)) });
+    return redirectToLogin(request, 'Google OAuth belum dikonfigurasi.');
+  }
 
   try {
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -50,7 +58,15 @@ export async function GET(request: Request) {
       }),
     });
     const tokenData = (await tokenResponse.json()) as GoogleTokenResponse;
-    if (!tokenResponse.ok || !tokenData.access_token) return redirectToLogin(request, 'Token Google tidak dapat diverifikasi.');
+    if (!tokenResponse.ok || !tokenData.access_token) {
+      logOAuthFailure('token-exchange', {
+        status: tokenResponse.status,
+        error: tokenData.error,
+        description: tokenData.error_description,
+        redirectUri,
+      });
+      return redirectToLogin(request, 'Token Google tidak dapat diverifikasi.');
+    }
 
     const userResponse = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
