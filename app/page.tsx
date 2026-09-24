@@ -32,19 +32,14 @@ function MainApp() {
   const [isTrackerOpen, setIsTrackerOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex h-screen flex-col overflow-hidden">
       <HeaderContent onOpenTracker={() => setIsTrackerOpen(true)} />
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8 md:px-8">
-        <div className="mb-6 flex flex-col gap-2 sm:mb-8">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">Personal scheduling</p>
-          <h2 className="max-w-2xl text-2xl font-bold tracking-[-0.035em] text-foreground sm:text-3xl">Atur waktu yang tepat untuk percakapan yang penting.</h2>
-          <p className="max-w-2xl text-sm leading-6 text-muted">Pilih tanggal yang tersedia, tentukan slot waktu, lalu kirim permintaan janji temu. Semua waktu menggunakan WIB.</p>
-        </div>
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col overflow-hidden px-4 py-3 sm:px-6 md:px-8">
         <CalendarView />
       </main>
 
-      <footer className="glass-panel mt-8 rounded-t-2xl border-b-0 border-x-0 px-4 py-6 text-center text-xs text-muted">
+      <footer className="glass-panel shrink-0 border-b-0 border-x-0 px-4 py-2.5 text-center text-xs text-muted">
         <p>© 2026 KALYO · Personal Scheduling</p>
       </footer>
 

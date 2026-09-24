@@ -30,25 +30,24 @@ export function CalendarView() {
   };
 
   return (
-    <div className="w-full flex flex-col space-y-4">
+    <div className="flex h-full w-full flex-1 flex-col gap-3 overflow-hidden">
       {/* Calendar Top Action Header */}
-      <div className="glass-panel flex flex-col gap-4 rounded-2xl p-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="glass-panel flex shrink-0 items-center justify-between gap-4 rounded-2xl px-5 py-3.5">
         <div>
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-[#06b6d4] shadow-[0_0_0_4px_rgb(6_182_212_/_0.15)]" aria-hidden="true" />
             <span className="text-xs font-bold uppercase tracking-[0.14em] text-brand">Availability</span>
           </div>
-          <h2 className="mt-2 text-xl font-bold tracking-tight text-foreground">{t('calendar.title')}</h2>
-          <p className="mt-1 text-sm text-muted">Timezone: Asia/Jakarta (WIB)</p>
+          <h2 className="mt-1 text-lg font-bold tracking-tight text-foreground">{t('calendar.title')}</h2>
         </div>
-        <button type="button" onClick={handleOpenAppointmentModal} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-brand-dark hover:shadow-md">
+        <button type="button" onClick={handleOpenAppointmentModal} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-brand-dark hover:shadow-md">
           <span className="text-lg leading-none">+</span>
           <span>{t('calendar.requestAppointment')}</span>
         </button>
       </div>
 
-      {/* FullCalendar Wrapper */}
-      <div className="glass-panel-strong w-full overflow-hidden rounded-2xl p-3 sm:p-5">
+      {/* FullCalendar Wrapper - Internal Scroll */}
+      <div className="glass-panel-strong w-full flex-1 overflow-hidden rounded-2xl p-3 sm:p-4">
         <FullCalendar
           ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -102,7 +101,7 @@ export function CalendarView() {
               failureCallback(err as Error);
             }
           }}
-          height="auto"
+          height="100%"
           expandRows={true}
         />
       </div>
