@@ -2,6 +2,12 @@ import { google } from 'googleapis';
 import type { CalendarSourceConfig, UnifiedEvent } from '@/types/calendar';
 
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
+const GOOGLE_EVENTS_CACHE_TTL_MS = 15_000;
+const eventsCache = new Map<string, { expiresAt: number; value: UnifiedEvent[] }>();
+const eventsInFlight = new Map<string, Promise<UnifiedEvent[]>>();
+const GOOGLE_CALENDAR_REQUEST_TIMEOUT_MS = 3_000;
+let cachedCalendarClient: ReturnType<typeof google.calendar> | undefined;
+let cachedCredentialFingerprint: string | undefined;
 
 export function getGoogleCalendarClient() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -14,13 +20,20 @@ export function getGoogleCalendarClient() {
   // Environment variables commonly store PEM line breaks as literal \\n.
   privateKey = privateKey.replace(/\\n/g, '\n');
 
+  const credentialFingerprint = `${email}:${privateKey.length}`;
+  if (cachedCalendarClient && cachedCredentialFingerprint === credentialFingerprint) {
+    return cachedCalendarClient;
+  }
+
   const auth = new google.auth.JWT({
     email,
     key: privateKey,
     scopes: SCOPES,
   });
 
-  return google.calendar({ version: 'v3', auth });
+  cachedCalendarClient = google.calendar({ version: 'v3', auth });
+  cachedCredentialFingerprint = credentialFingerprint;
+  return cachedCalendarClient;
 }
 
 /**
@@ -32,9 +45,21 @@ export async function fetchMergedEvents(
   timeMax: Date,
   timeZone = 'Asia/Jakarta'
 ): Promise<UnifiedEvent[]> {
-  const calendar = getGoogleCalendarClient();
+  const cacheKey = JSON.stringify({
+    calendars: calendars.map((cal) => [cal.googleCalendarId, cal.showTitle, cal.showDescription, cal.color]),
+    timeMin: timeMin.toISOString(),
+    timeMax: timeMax.toISOString(),
+    timeZone,
+  });
+  const cached = eventsCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
 
-  const promises = calendars.map(async (cal) => {
+  const inFlight = eventsInFlight.get(cacheKey);
+  if (inFlight) return inFlight;
+
+  const request = (async (): Promise<UnifiedEvent[]> => {
+    const calendar = getGoogleCalendarClient();
+    const promises = calendars.map(async (cal) => {
     try {
       const response = await calendar.events.list({
         calendarId: cal.googleCalendarId,
@@ -43,6 +68,9 @@ export async function fetchMergedEvents(
         singleEvents: true,
         orderBy: 'startTime',
         timeZone,
+        fields: 'items(id,summary,description,start,end)',
+      }, {
+        timeout: GOOGLE_CALENDAR_REQUEST_TIMEOUT_MS,
       });
 
       const items = response.data.items ?? [];
@@ -79,7 +107,21 @@ export async function fetchMergedEvents(
   });
 
   const results = await Promise.all(promises);
-  return results.flat();
+  const merged = results.flat();
+  if (eventsCache.size >= 100) {
+    const oldestKey = eventsCache.keys().next().value;
+    if (oldestKey) eventsCache.delete(oldestKey);
+  }
+    eventsCache.set(cacheKey, { expiresAt: Date.now() + GOOGLE_EVENTS_CACHE_TTL_MS, value: merged });
+    return merged;
+  })();
+
+  eventsInFlight.set(cacheKey, request);
+  try {
+    return await request;
+  } finally {
+    eventsInFlight.delete(cacheKey);
+  }
 }
 
 /**

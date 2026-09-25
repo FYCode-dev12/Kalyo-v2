@@ -3,7 +3,18 @@
 import React, { useState } from 'react';
 import { I18nProvider, useI18n } from '@/lib/i18n';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
-import { CalendarView } from '@/components/calendar/CalendarView';
+import dynamic from 'next/dynamic';
+
+const CalendarView = dynamic(
+  () => import('@/components/calendar/CalendarView').then((module) => module.CalendarView),
+  {
+    loading: () => (
+      <div className="glass-panel-strong flex min-h-0 flex-1 items-center justify-center rounded-2xl text-sm text-muted">
+        Memuat kalender…
+      </div>
+    ),
+  }
+);
 import { StatusTrackerModal } from '@/components/calendar/StatusTrackerModal';
 
 function HeaderContent({ onOpenTracker }: { onOpenTracker: () => void }) {

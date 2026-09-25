@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -14,6 +14,21 @@ export function CalendarView() {
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  useEffect(() => {
+    const handleResize = () => {
+      const calendar = calendarRef.current?.getApi();
+      if (!calendar) return;
+
+      const isMobile = window.innerWidth < 768;
+      calendar.changeView(isMobile ? 'timeGridDay' : 'timeGridWeek');
+      calendar.setOption('slotMinTime', isMobile ? '00:00:00' : '08:00:00');
+      calendar.setOption('slotMaxTime', isMobile ? '24:00:00' : '20:00:00');
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Handle date click on calendar
   const handleDateClick = (arg: { dateStr: string }) => {
@@ -70,37 +85,38 @@ export function CalendarView() {
           allDaySlot={true}
           selectable={true}
           dateClick={handleDateClick}
-          events={async (fetchInfo, successCallback, failureCallback) => {
-            try {
-              const res = await fetch(
-                `/api/events?start=${fetchInfo.startStr}&end=${fetchInfo.endStr}`
-              );
-              const json = await res.json();
-              if (!res.ok) throw new Error(json.error);
-
-              const formattedEvents = (json.data || []).map((item: {
-                id: string;
-                title: string;
-                start: string;
-                end: string;
-                color: string;
-                allDay: boolean;
-              }) => ({
-                id: item.id,
-                title: item.title,
-                start: item.start,
-                end: item.end,
-                backgroundColor: item.color,
-                borderColor: item.color,
-                allDay: item.allDay,
-              }));
-
-              successCallback(formattedEvents);
-            } catch (err) {
-              console.error('[CalendarView] Fetch events error:', err);
-              failureCallback(err as Error);
-            }
-          }}
+          eventSources={[
+            {
+              events: async (fetchInfo, successCallback, failureCallback) => {
+                try {
+                  const response = await fetch(
+                    `/api/events?start=${fetchInfo.startStr}&end=${fetchInfo.endStr}`
+                  );
+                  const json = await response.json();
+                  if (!response.ok) throw new Error(json.error);
+                  successCallback(json.data || []);
+                } catch (err) {
+                  console.error('[CalendarView] Fetch appointment events error:', err);
+                  failureCallback(err as Error);
+                }
+              },
+            },
+            {
+              events: async (fetchInfo, successCallback, failureCallback) => {
+                try {
+                  const response = await fetch(
+                    `/api/google-events?start=${fetchInfo.startStr}&end=${fetchInfo.endStr}`
+                  );
+                  const json = await response.json();
+                  if (!response.ok) throw new Error(json.error);
+                  successCallback(json.data || []);
+                } catch (err) {
+                  console.warn('[CalendarView] Google events unavailable:', err);
+                  failureCallback(err as Error);
+                }
+              },
+            },
+          ]}
           height="100%"
           expandRows={true}
         />

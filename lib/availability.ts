@@ -18,16 +18,23 @@ export async function getAvailableSlots(params: AvailabilityParams): Promise<{
 }> {
   const { dateStr, durationMin, timeZone = DEFAULT_TZ } = params;
 
-  // 1. Fetch Business Rule (singleton)
-  const rule = (await prisma.businessRule.findUnique({
-    where: { id: 'singleton' },
-  })) || {
+  const defaultRule = {
     workStartTime: '09:00',
     workEndTime: '17:00',
-    workdays: [1, 2, 3, 4, 5], // Monday - Friday
+    workdays: [1, 2, 3, 4, 5],
     minNoticeHours: 24,
     slotDurationMin: 30,
   };
+
+  // Load independent database inputs together to avoid serial round trips.
+  const [storedRule, holiday] = await Promise.all([
+    prisma.businessRule.findUnique({ where: { id: 'singleton' } }),
+    prisma.holiday.findFirst({
+      where: { date: { gte: fromZonedTime(`${dateStr}T00:00:00`, timeZone), lte: fromZonedTime(`${dateStr}T23:59:59`, timeZone) } },
+      select: { reason: true },
+    }),
+  ]);
+  const rule = storedRule || defaultRule;
 
   const slotDuration = durationMin || rule.slotDurationMin || 30;
 
@@ -44,16 +51,6 @@ export async function getAvailableSlots(params: AvailabilityParams): Promise<{
 
   const startOfDay = fromZonedTime(startOfDayStr, timeZone);
   const endOfDay = fromZonedTime(endOfDayStr, timeZone);
-
-  // 3. Check if target date is a Holiday
-  const holiday = await prisma.holiday.findFirst({
-    where: {
-      date: {
-        gte: startOfDay,
-        lte: endOfDay,
-      },
-    },
-  });
 
   if (holiday) {
     return {
@@ -84,8 +81,28 @@ export async function getAvailableSlots(params: AvailabilityParams): Promise<{
   const now = new Date();
   const noticeThreshold = new Date(now.getTime() + rule.minNoticeHours * 60 * 60 * 1000);
 
-  // 6. Fetch Active Calendar Sources from DB
-  const calendarSources = await prisma.calendarSource.findMany();
+  // Fetch database inputs together; Google events are fetched after calendar config resolves.
+  const [calendarSources, dbAppointments] = await Promise.all([
+    prisma.calendarSource.findMany({
+      select: {
+        id: true,
+        googleCalendarId: true,
+        displayName: true,
+        color: true,
+        showTitle: true,
+        showDescription: true,
+        isBookingTarget: true,
+      },
+    }),
+    prisma.appointmentRequest.findMany({
+      where: {
+        status: { in: ['PENDING', 'APPROVED'] },
+        startDatetime: { lte: endOfDay },
+        endDatetime: { gte: startOfDay },
+      },
+      select: { startDatetime: true, endDatetime: true },
+    }),
+  ]);
   const calConfigs: CalendarSourceConfig[] = calendarSources.map((c) => ({
     id: c.id,
     googleCalendarId: c.googleCalendarId,
@@ -96,17 +113,7 @@ export async function getAvailableSlots(params: AvailabilityParams): Promise<{
     isBookingTarget: c.isBookingTarget,
   }));
 
-  // 7. Fetch Google Calendar events for the day
   const googleEvents = await fetchMergedEvents(calConfigs, startOfDay, endOfDay, timeZone);
-
-  // 8. Fetch active AppointmentRequests from DB (PENDING or APPROVED)
-  const dbAppointments = await prisma.appointmentRequest.findMany({
-    where: {
-      status: { in: ['PENDING', 'APPROVED'] },
-      startDatetime: { lte: endOfDay },
-      endDatetime: { gte: startOfDay },
-    },
-  });
 
   // 9. Generate candidate time slots within work hours
   const [startHour, startMin] = rule.workStartTime.split(':').map(Number);

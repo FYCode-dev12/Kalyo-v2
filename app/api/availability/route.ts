@@ -14,7 +14,14 @@ export async function GET(request: NextRequest) {
     }
 
     const result = await getAvailableSlots({ dateStr });
-    return NextResponse.json({ data: result });
+    return NextResponse.json(
+      { data: result },
+      {
+        headers: {
+          'Cache-Control': 'public, max-age=15, stale-while-revalidate=30',
+        },
+      }
+    );
   } catch (err: unknown) {
     console.error('[API /api/availability] Error:', err);
     return NextResponse.json(
