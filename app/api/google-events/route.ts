@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     }
 
     const calendarSources = await prisma.calendarSource.findMany({
+      where: { showOnPublic: true },
       select: {
         id: true,
         googleCalendarId: true,

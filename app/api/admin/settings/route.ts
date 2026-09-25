@@ -12,7 +12,17 @@ export async function GET() {
   const [businessRule, holidays, calendars] = await prisma.$transaction([
     prisma.businessRule.findUnique({ where: { id: 'singleton' } }),
     prisma.holiday.findMany({ orderBy: { date: 'asc' } }),
-    prisma.calendarSource.findMany({ orderBy: { displayName: 'asc' } }),
+    prisma.calendarSource.findMany({
+      orderBy: { displayName: 'asc' },
+      select: {
+        id: true,
+        displayName: true,
+        googleCalendarId: true,
+        color: true,
+        isBookingTarget: true,
+        showOnPublic: true,
+      },
+    }),
   ]);
   return NextResponse.json({ data: { businessRule, holidays, calendars } });
 }
@@ -21,6 +31,21 @@ export async function PATCH(request: NextRequest) {
   try {
     if (!(await isAdminAuthenticated())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await request.json().catch(() => null);
+    const calendar = body?.calendar;
+    if (calendar?.id) {
+      if (typeof calendar.showOnPublic !== 'boolean' && typeof calendar.isBookingTarget !== 'boolean') {
+        return NextResponse.json({ error: 'Pengaturan kalender tidak valid' }, { status: 400 });
+      }
+      const updatedCalendar = await prisma.calendarSource.update({
+        where: { id: calendar.id },
+        data: {
+          ...(typeof calendar.showOnPublic === 'boolean' ? { showOnPublic: calendar.showOnPublic } : {}),
+          ...(typeof calendar.isBookingTarget === 'boolean' ? { isBookingTarget: calendar.isBookingTarget } : {}),
+        },
+      });
+      await writeAuditLog({ action: 'CALENDAR_SOURCE_UPDATE', entityType: 'CalendarSource', entityId: updatedCalendar.id, metadata: { showOnPublic: updatedCalendar.showOnPublic, isBookingTarget: updatedCalendar.isBookingTarget } });
+      return NextResponse.json({ success: true, data: updatedCalendar });
+    }
     const rule = body?.businessRule;
     if (!rule || !validTime(rule.workStartTime) || !validTime(rule.workEndTime) || rule.workStartTime >= rule.workEndTime) {
       return NextResponse.json({ error: 'Jam kerja tidak valid' }, { status: 400 });

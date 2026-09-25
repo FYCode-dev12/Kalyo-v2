@@ -11,4 +11,5 @@ export interface AvailabilityParams {
   dateStr: string; // "YYYY-MM-DD"
   durationMin?: number; // default 30
   timeZone?: string; // default "Asia/Jakarta"
+  calendarSourceId?: string;
 }

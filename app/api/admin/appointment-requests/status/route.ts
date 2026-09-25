@@ -62,9 +62,9 @@ export async function PATCH(request: NextRequest) {
     let calendarSynced = false;
     if (status === 'APPROVED') {
       try {
-        const primaryCalendar = await prisma.calendarSource.findFirst({
-          where: { isBookingTarget: true },
-        });
+        const primaryCalendar = updatedRequest.calendarSourceId
+          ? await prisma.calendarSource.findFirst({ where: { id: updatedRequest.calendarSourceId, isBookingTarget: true } })
+          : await prisma.calendarSource.findFirst({ where: { isBookingTarget: true } });
 
         if (primaryCalendar) {
           const startIso = new Date(updatedRequest.startDatetime).toISOString();

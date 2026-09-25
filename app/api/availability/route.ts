@@ -13,7 +13,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const result = await getAvailableSlots({ dateStr });
+    const calendarSourceId = searchParams.get('calendarSourceId') || undefined;
+    const result = await getAvailableSlots({ dateStr, calendarSourceId });
     return NextResponse.json(
       { data: result },
       {

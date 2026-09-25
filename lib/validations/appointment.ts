@@ -22,12 +22,13 @@ export const appointmentRequestSchema = z
       .max(500, { message: 'Keperluan maksimal 500 karakter' })
       .optional()
       .or(z.literal('')),
+    calendarSourceId: z.string().uuid({ message: 'Jenis kalender tidak valid' }),
     startDatetime: z
       .string()
-      .datetime({ message: 'Waktu mulai harus dalam format ISO 8601' }),
+      .refine((value) => !Number.isNaN(new Date(value).getTime()), { message: 'Waktu mulai tidak valid' }),
     endDatetime: z
       .string()
-      .datetime({ message: 'Waktu selesai harus dalam format ISO 8601' }),
+      .refine((value) => !Number.isNaN(new Date(value).getTime()), { message: 'Waktu selesai tidak valid' }),
     termsAccepted: z
       .boolean()
       .refine((val) => val === true, {

@@ -16,7 +16,7 @@ export async function getAvailableSlots(params: AvailabilityParams): Promise<{
   holidayReason?: string;
   slots: TimeSlot[];
 }> {
-  const { dateStr, durationMin, timeZone = DEFAULT_TZ } = params;
+  const { dateStr, durationMin, timeZone = DEFAULT_TZ, calendarSourceId } = params;
 
   const defaultRule = {
     workStartTime: '09:00',
@@ -84,6 +84,7 @@ export async function getAvailableSlots(params: AvailabilityParams): Promise<{
   // Fetch database inputs together; Google events are fetched after calendar config resolves.
   const [calendarSources, dbAppointments] = await Promise.all([
     prisma.calendarSource.findMany({
+      where: calendarSourceId ? { id: calendarSourceId, isBookingTarget: true } : undefined,
       select: {
         id: true,
         googleCalendarId: true,

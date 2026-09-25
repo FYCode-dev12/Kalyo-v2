@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     const dateStr = formatInTimeZone(reqStart, 'Asia/Jakarta', 'yyyy-MM-dd');
 
     // Re-validate that the submitted range is an actually available server slot.
-    const availability = await getAvailableSlots({ dateStr, timeZone: 'Asia/Jakarta' });
+    const availability = await getAvailableSlots({ dateStr, timeZone: 'Asia/Jakarta', calendarSourceId: data.calendarSourceId });
     const requestedSlot = availability.slots.find(
       (slot) => slot.startTime === reqStart.toISOString() && slot.endTime === reqEnd.toISOString()
     );
@@ -44,7 +44,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Check overlap with Google Calendar
-    const calendarSources = await prisma.calendarSource.findMany();
+    const calendarSources = await prisma.calendarSource.findMany({
+      where: { id: data.calendarSourceId, isBookingTarget: true },
+    });
+    if (calendarSources.length !== 1) {
+      return NextResponse.json({ error: 'Kalender tujuan booking tidak valid.' }, { status: 400 });
+    }
     const calConfigs: CalendarSourceConfig[] = calendarSources.map((c) => ({
       id: c.id,
       googleCalendarId: c.googleCalendarId,
@@ -89,6 +94,7 @@ export async function POST(request: NextRequest) {
           requesterEmail: data.requesterEmail,
           requesterPhone: data.requesterPhone || null,
           purpose: data.purpose || null,
+          calendarSourceId: data.calendarSourceId,
           startDatetime: reqStart,
           endDatetime: reqEnd,
           status: 'PENDING',

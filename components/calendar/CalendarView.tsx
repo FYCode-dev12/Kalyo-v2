@@ -16,6 +16,7 @@ export function CalendarView() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [selectedEvent, setSelectedEvent] = useState<EventClickArg['event'] | null>(null);
+  const [publicCalendars, setPublicCalendars] = useState<Array<{ id: string; displayName: string; color: string; showOnPublic: boolean }>>([]);
   useEffect(() => {
     const handleResize = () => {
       const calendar = calendarRef.current?.getApi();
@@ -30,6 +31,13 @@ export function CalendarView() {
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/public-calendars')
+      .then((response) => response.json())
+      .then((body) => setPublicCalendars(body.data || []))
+      .catch(() => setPublicCalendars([]));
   }, []);
 
   // Handle date click on calendar
@@ -79,6 +87,16 @@ export function CalendarView() {
 
       {/* FullCalendar Wrapper - Internal Scroll */}
       <div className="glass-panel-strong w-full flex-1 overflow-hidden rounded-2xl p-3 sm:p-4">
+        {publicCalendars.length > 0 && (
+          <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-1 pb-3" aria-label="Kalender aktif">
+            {publicCalendars.filter((calendar) => calendar.showOnPublic).map((calendar) => (
+              <span key={calendar.id} className="inline-flex items-center gap-2 text-xs font-semibold text-muted">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: calendar.color }} aria-hidden="true" />
+                {calendar.displayName}
+              </span>
+            ))}
+          </div>
+        )}
         <FullCalendar
           ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -99,6 +117,8 @@ export function CalendarView() {
           slotMinTime="00:00:00"
           slotMaxTime="24:00:00"
           allDaySlot={true}
+          displayEventEnd={true}
+          eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
           selectable={true}
           dateClick={handleDateClick}
           eventClick={handleEventClick}

@@ -6,26 +6,24 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { appointmentRequestSchema, type AppointmentRequestInput } from '@/lib/validations/appointment';
 import { useI18n } from '@/lib/i18n';
 import { TermsModal } from '@/components/terms/TermsModal';
-import type { TimeSlot } from '@/types/availability';
 
 interface AppointmentModalProps {
   isOpen: boolean;
-  selectedDate: string | null; // YYYY-MM-DD
+  selectedDate: string | null;
   onClose: () => void;
 }
 
+type CalendarOption = { id: string; displayName: string; color: string; isBookingTarget: boolean };
+type SlotState = { available: boolean; reason?: string };
+
 export function AppointmentModal({ isOpen, selectedDate, onClose }: AppointmentModalProps) {
   const { t } = useI18n();
-
-  const [slots, setSlots] = useState<TimeSlot[]>([]);
-  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
-  const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
-  const [slotError, setSlotError] = useState<string | null>(null);
-
-  const [isTermsOpen, setIsTermsOpen] = useState<boolean>(false);
-  const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
-
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [calendars, setCalendars] = useState<CalendarOption[]>([]);
+  const [slotState, setSlotState] = useState<SlotState | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [isTermsOpen, setIsTermsOpen] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successData, setSuccessData] = useState<{ id: string; statusToken: string } | null>(null);
 
@@ -33,63 +31,71 @@ export function AppointmentModal({ isOpen, selectedDate, onClose }: AppointmentM
     register,
     handleSubmit,
     setValue,
+    watch,
     reset,
     formState: { errors },
   } = useForm<AppointmentRequestInput>({
     resolver: zodResolver(appointmentRequestSchema),
-    defaultValues: {
-      termsAccepted: false,
-    },
+    defaultValues: { termsAccepted: false },
   });
 
-  // Fetch available slots when selectedDate changes
-  const fetchSlots = useCallback(async (dateStr: string) => {
-    setLoadingSlots(true);
-    setSlotError(null);
-    setSlots([]);
-    setSelectedSlot(null);
+  const startDatetime = watch('startDatetime');
+  const endDatetime = watch('endDatetime');
+  const calendarSourceId = watch('calendarSourceId');
 
-    try {
-      const res = await fetch(`/api/availability?date=${dateStr}`);
-      const json = await res.json();
+  const toIso = (value: string) => new Date(value).toISOString();
 
-      if (!res.ok) {
-        throw new Error(json.error || t('common.error'));
-      }
+  const fetchCalendars = useCallback(async () => {
+    const response = await fetch('/api/public-calendars');
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error || t('common.error'));
+    const targets = (body.data || []).filter((calendar: CalendarOption) => calendar.isBookingTarget);
+    setCalendars(targets);
+    if (targets[0]) setValue('calendarSourceId', targets[0].id, { shouldValidate: true });
+  }, [setValue, t]);
 
-      const data = json.data;
-      if (data.isHoliday) {
-        setSlotError(`${t('calendar.holiday')}: ${data.holidayReason || ''}`);
-      } else if (!data.isWorkday) {
-        setSlotError(t('calendar.nonWorkday'));
-      } else {
-        setSlots(data.slots || []);
-      }
-    } catch (err: unknown) {
-      setSlotError(err instanceof Error ? err.message : t('common.error'));
-    } finally {
-      setLoadingSlots(false);
+  const validateTimeRange = useCallback(async () => {
+    if (!startDatetime || !endDatetime) {
+      setSlotState(null);
+      return;
     }
-  }, [t]);
+    setLoading(true);
+    try {
+      const date = startDatetime.slice(0, 10);
+      const response = await fetch(`/api/availability?date=${date}&calendarSourceId=${encodeURIComponent(calendarSourceId || '')}`);
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || t('common.error'));
+      const slot = body.data.slots?.find((item: { startTime: string; endTime: string }) =>
+        item.startTime === toIso(startDatetime) && item.endTime === toIso(endDatetime)
+      );
+      setSlotState(slot || { available: false, reason: 'Waktu mulai dan selesai harus mengikuti durasi slot yang tersedia.' });
+    } catch (error) {
+      setSlotState({ available: false, reason: error instanceof Error ? error.message : t('common.error') });
+    } finally {
+      setLoading(false);
+    }
+  }, [startDatetime, endDatetime, calendarSourceId, t]);
 
   useEffect(() => {
-    if (isOpen && selectedDate) {
-      // Fetching slots updates async loading/data state for this modal.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      fetchSlots(selectedDate);
-      reset();
-      setTermsAccepted(false);
-      setSuccessData(null);
-      setSubmitError(null);
-    }
-  }, [isOpen, selectedDate, fetchSlots, reset]);
+    if (!isOpen) return;
+    // Initial modal synchronization intentionally loads remote public settings.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchCalendars().catch((error) => setSubmitError(error.message));
+    reset({
+      termsAccepted: false,
+      calendarSourceId: '',
+      startDatetime: selectedDate ? `${selectedDate}T09:00` : '',
+      endDatetime: selectedDate ? `${selectedDate}T09:30` : '',
+    });
+    setTermsAccepted(false);
+    setSuccessData(null);
+    setSubmitError(null);
+    setSlotState(null);
+  }, [isOpen, selectedDate, fetchCalendars, reset]);
 
-  const handleSlotSelect = (slot: TimeSlot) => {
-    if (!slot.available) return;
-    setSelectedSlot(slot);
-    setValue('startDatetime', slot.startTime, { shouldValidate: true });
-    setValue('endDatetime', slot.endTime, { shouldValidate: true });
-  };
+  useEffect(() => {
+    if (isOpen && startDatetime && endDatetime) validateTimeRange();
+  }, [isOpen, startDatetime, endDatetime, validateTimeRange]);
 
   const handleTermsAccept = () => {
     setTermsAccepted(true);
@@ -97,27 +103,24 @@ export function AppointmentModal({ isOpen, selectedDate, onClose }: AppointmentM
   };
 
   const onSubmit = async (data: AppointmentRequestInput) => {
-    if (!selectedSlot) return;
-
+    if (!slotState?.available || !calendarSourceId) return;
     setIsSubmitting(true);
     setSubmitError(null);
-
     try {
-      const res = await fetch('/api/appointment-requests', {
+      const response = await fetch('/api/appointment-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          startDatetime: toIso(data.startDatetime),
+          endDatetime: toIso(data.endDatetime),
+        }),
       });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        throw new Error(json.error || t('common.error'));
-      }
-
-      setSuccessData(json.data);
-    } catch (err: unknown) {
-      setSubmitError(err instanceof Error ? err.message : t('common.error'));
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || t('common.error'));
+      setSuccessData(body.data);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : t('common.error'));
     } finally {
       setIsSubmitting(false);
     }
@@ -129,226 +132,73 @@ export function AppointmentModal({ isOpen, selectedDate, onClose }: AppointmentM
     <>
       <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#081637]/55 p-4 backdrop-blur-md">
         <div className="glass-panel-strong flex max-h-[90vh] w-full max-w-xl flex-col rounded-2xl p-6 shadow-2xl">
-          {/* Header */}
-          <div className="flex items-center justify-between pb-4 border-b border-border">
+          <div className="flex items-center justify-between border-b border-border pb-4">
             <div>
-              <h2 className="text-xl font-bold text-foreground">
-                {t('form.title')}
-              </h2>
-              <p className="text-xs text-muted mt-0.5">
-                {selectedDate ? `${t('calendar.today')}: ${selectedDate}` : t('form.subtitle')}
-              </p>
+              <h2 className="text-xl font-bold text-foreground">{t('form.title')}</h2>
+              <p className="mt-0.5 text-xs text-muted">{selectedDate ? `${t('calendar.today')}: ${selectedDate}` : t('form.subtitle')}</p>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-muted hover:text-foreground text-lg font-bold p-1 rounded-md"
-            >
-              ✕
-            </button>
+            <button type="button" onClick={onClose} className="rounded-md p-1 text-lg font-bold text-muted hover:text-foreground" aria-label="Tutup">✕</button>
           </div>
 
-          {/* Body */}
-          <div className="flex-1 overflow-y-auto py-4 space-y-6">
+          <div className="flex-1 space-y-6 overflow-y-auto py-4">
             {successData ? (
-              <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-6 text-center space-y-3">
-                <div className="text-emerald-600 text-3xl">✓</div>
-                <h3 className="text-lg font-bold text-emerald-900">
-                  {t('form.successTitle')}
-                </h3>
-                <p className="text-sm text-emerald-700">
-                  {t('form.successMessage')}
-                </p>
-                <div className="mt-4 p-3 bg-white rounded-lg border border-emerald-200 text-xs font-mono select-all break-all">
-                  <span className="font-sans font-medium text-muted block mb-1">
-                    {t('form.statusTokenText')}
-                  </span>
-                  <strong className="text-emerald-800 text-sm">{successData.statusToken}</strong>
-                </div>
+              <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center">
+                <div className="text-3xl text-emerald-600">✓</div>
+                <h3 className="text-lg font-bold text-emerald-900">{t('form.successTitle')}</h3>
+                <p className="text-sm text-emerald-700">{t('form.successMessage')}</p>
+                <div className="mt-4 rounded-lg border border-emerald-200 bg-white p-3 text-xs font-mono select-all">{successData.statusToken}</div>
               </div>
             ) : (
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-                {/* 1. Time Slot Selection */}
-                <div>
-                  <label className="block text-xs font-semibold text-foreground uppercase tracking-wider mb-2">
-                    {t('calendar.selectSlot')}
-                  </label>
-
-                  {loadingSlots ? (
-                    <div className="py-6 text-center text-xs text-muted">
-                      {t('common.loading')}
-                    </div>
-                  ) : slotError ? (
-                    <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-xs font-medium">
-                      {slotError}
-                    </div>
-                  ) : slots.length === 0 ? (
-                    <div className="p-3 bg-surface-muted text-muted rounded-lg text-xs text-center">
-                      {t('calendar.noAvailableSlots')}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-36 overflow-y-auto p-1 border border-border rounded-xl">
-                      {slots.map((slot, idx) => {
-                        const isSelected = selectedSlot?.startTime === slot.startTime;
-                        return (
-                          <button
-                            key={idx}
-                            type="button"
-                            disabled={!slot.available}
-                            onClick={() => handleSlotSelect(slot)}
-                            className={`px-3 py-2 text-xs font-semibold rounded-lg border transition-all text-center ${
-                              !slot.available
-                                ? 'bg-surface-muted text-muted/50 border-transparent cursor-not-allowed line-through'
-                                : isSelected
-                                ? 'bg-brand text-white border-brand shadow-xs'
-                                : 'bg-surface text-foreground border-border hover:border-brand/50'
-                            }`}
-                            title={slot.reason}
-                          >
-                            {slot.formattedStart} - {slot.formattedEnd}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {errors.startDatetime && (
-                    <p className="text-xs text-rose-500 mt-1 font-medium">
-                      Pilih salah satu slot waktu di atas.
-                    </p>
-                  )}
+                <div className="space-y-3 border-b border-border pb-4">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-foreground">Jenis kalender</label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {calendars.map((calendar) => (
+                      <label key={calendar.id} className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm ${calendarSourceId === calendar.id ? 'border-brand bg-brand/10' : 'border-border bg-surface'}`}>
+                        <input type="radio" value={calendar.id} {...register('calendarSourceId')} />
+                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: calendar.color }} />
+                        <span>{calendar.displayName}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {errors.calendarSourceId && <p className="text-xs text-rose-500">Pilih kalender tujuan.</p>}
                 </div>
 
-                {/* 2. Requester Details */}
-                <div className="space-y-3 pt-2 border-t border-border">
-                  <div>
-                    <label className="block text-xs font-medium text-foreground mb-1">
-                      {t('form.name')} <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder={t('form.namePlaceholder')}
-                      {...register('requesterName')}
-                      className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-surface text-foreground focus:outline-none focus:ring-2 focus:ring-brand/30"
-                    />
-                    {errors.requesterName && (
-                      <p className="text-xs text-rose-500 mt-1 font-medium">
-                        {errors.requesterName.message}
-                      </p>
-                    )}
-                  </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="text-xs font-semibold text-foreground">Waktu mulai<input type="datetime-local" step="1800" {...register('startDatetime')} className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm" /></label>
+                  <label className="text-xs font-semibold text-foreground">Waktu selesai<input type="datetime-local" step="1800" {...register('endDatetime')} className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm" /></label>
+                </div>
+                {loading && <p className="text-xs text-muted">Memeriksa ketersediaan waktu...</p>}
+                {slotState && <p className={`rounded-lg p-3 text-xs font-medium ${slotState.available ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`}>{slotState.available ? 'Waktu tersedia.' : slotState.reason}</p>}
+                {errors.startDatetime && <p className="text-xs text-rose-500">{errors.startDatetime.message}</p>}
+                {errors.endDatetime && <p className="text-xs text-rose-500">{errors.endDatetime.message}</p>}
 
-                  <div>
-                    <label className="block text-xs font-medium text-foreground mb-1">
-                      {t('form.email')} <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      placeholder={t('form.emailPlaceholder')}
-                      {...register('requesterEmail')}
-                      className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-surface text-foreground focus:outline-none focus:ring-2 focus:ring-brand/30"
-                    />
-                    {errors.requesterEmail && (
-                      <p className="text-xs text-rose-500 mt-1 font-medium">
-                        {errors.requesterEmail.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-foreground mb-1">
-                      {t('form.phone')}
-                    </label>
-                    <input
-                      type="tel"
-                      placeholder={t('form.phonePlaceholder')}
-                      {...register('requesterPhone')}
-                      className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-surface text-foreground focus:outline-none focus:ring-2 focus:ring-brand/30"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-foreground mb-1">
-                      {t('form.purpose')}
-                    </label>
-                    <textarea
-                      rows={2}
-                      placeholder={t('form.purposePlaceholder')}
-                      {...register('purpose')}
-                      className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-surface text-foreground focus:outline-none focus:ring-2 focus:ring-brand/30 resize-none"
-                    />
-                  </div>
+                <div className="space-y-3 border-t border-border pt-4">
+                  <label className="block text-xs font-medium text-foreground">{t('form.name')} *<input type="text" {...register('requesterName')} className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm" /></label>
+                  <label className="block text-xs font-medium text-foreground">{t('form.email')} *<input type="email" {...register('requesterEmail')} className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm" /></label>
+                  <label className="block text-xs font-medium text-foreground">{t('form.phone')}<input type="tel" {...register('requesterPhone')} className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm" /></label>
+                  <label className="block text-xs font-medium text-foreground">{t('form.purpose')}<textarea rows={2} {...register('purpose')} className="mt-1 w-full resize-none rounded-lg border border-border bg-surface px-3 py-2 text-sm" /></label>
                 </div>
 
-                {/* 3. T&C Blocking Gate Checkbox */}
-                <div className="pt-2 border-t border-border">
+                <div className="border-t border-border pt-4">
                   <div className="flex items-start gap-2.5">
-                    <input
-                      type="checkbox"
-                      id="termsAccepted"
-                      checked={termsAccepted}
-                      onChange={(e) => {
-                        setTermsAccepted(e.target.checked);
-                        setValue('termsAccepted', e.target.checked, { shouldValidate: true });
-                      }}
-                      className="mt-0.5 h-4 w-4 rounded border-border text-brand focus:ring-brand"
-                    />
-                    <label htmlFor="termsAccepted" className="text-xs text-foreground/80 leading-snug">
-                      {t('form.agreeTerms')}{' '}
-                      <button
-                        type="button"
-                        onClick={() => setIsTermsOpen(true)}
-                        className="text-brand font-semibold hover:underline"
-                      >
-                        ({t('form.readTerms')})
-                      </button>
-                    </label>
+                    <input type="checkbox" checked={termsAccepted} onChange={(event) => { setTermsAccepted(event.target.checked); setValue('termsAccepted', event.target.checked, { shouldValidate: true }); }} className="mt-0.5 h-4 w-4 rounded border-border text-brand" />
+                    <span className="text-xs leading-snug text-foreground/80">{t('form.agreeTerms')} <button type="button" onClick={() => setIsTermsOpen(true)} className="font-semibold text-brand hover:underline">({t('form.readTerms')})</button></span>
                   </div>
-                  {errors.termsAccepted && (
-                    <p className="text-xs text-rose-500 mt-1 font-medium">
-                      {errors.termsAccepted.message}
-                    </p>
-                  )}
+                  {errors.termsAccepted && <p className="mt-1 text-xs font-medium text-rose-500">{errors.termsAccepted.message}</p>}
                 </div>
 
-                {submitError && (
-                  <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs font-medium">
-                    {submitError}
-                  </div>
-                )}
-
-                {/* Submit Button */}
-                <div className="pt-2 flex items-center justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="px-4 py-2 text-sm font-medium text-muted hover:text-foreground rounded-lg border border-border"
-                  >
-                    {t('common.cancel')}
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || !selectedSlot || !termsAccepted}
-                    className={`px-5 py-2 text-sm font-semibold text-white rounded-lg shadow-xs transition-colors ${
-                      isSubmitting || !selectedSlot || !termsAccepted
-                        ? 'bg-muted/50 cursor-not-allowed'
-                        : 'bg-brand hover:bg-brand-dark'
-                    }`}
-                  >
-                    {isSubmitting ? t('common.submitting') : t('form.submitRequest')}
-                  </button>
+                {submitError && <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-700">{submitError}</div>}
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button type="button" onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted">{t('common.cancel')}</button>
+                  <button type="submit" disabled={isSubmitting || loading || !slotState?.available || !termsAccepted || !calendarSourceId} className="rounded-lg bg-brand px-5 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-muted/50">{isSubmitting ? t('common.submitting') : t('form.submitRequest')}</button>
                 </div>
               </form>
             )}
           </div>
         </div>
       </div>
-
-      {/* T&C Modal */}
-      <TermsModal
-        isOpen={isTermsOpen}
-        onClose={() => setIsTermsOpen(false)}
-        onAccept={handleTermsAccept}
-      />
+      <TermsModal isOpen={isTermsOpen} onClose={() => setIsTermsOpen(false)} onAccept={handleTermsAccept} />
     </>
   );
 }
