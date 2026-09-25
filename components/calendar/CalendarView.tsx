@@ -21,8 +21,8 @@ export function CalendarView() {
 
       const isMobile = window.innerWidth < 768;
       calendar.changeView(isMobile ? 'timeGridDay' : 'timeGridWeek');
-      calendar.setOption('slotMinTime', isMobile ? '00:00:00' : '08:00:00');
-      calendar.setOption('slotMaxTime', isMobile ? '24:00:00' : '20:00:00');
+      calendar.setOption('slotMinTime', '00:00:00');
+      calendar.setOption('slotMaxTime', '24:00:00');
     };
 
     handleResize();
@@ -80,8 +80,8 @@ export function CalendarView() {
             week: t('calendar.week'),
             day: t('calendar.day'),
           }}
-          slotMinTime="08:00:00"
-          slotMaxTime="20:00:00"
+          slotMinTime="00:00:00"
+          slotMaxTime="24:00:00"
           allDaySlot={true}
           selectable={true}
           dateClick={handleDateClick}
