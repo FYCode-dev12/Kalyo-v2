@@ -59,27 +59,37 @@ export function CalendarView() {
     setSelectedEvent(arg.event);
   };
 
-  const formatEventTime = (date: Date | null) => date
-    ? new Intl.DateTimeFormat('id-ID', {
+  const formatEventTime = (value: string | null) => {
+    if (!value) return null;
+    // FullCalendar's startStr/endStr are already expressed in the calendar timezone.
+    // Read the displayed clock parts directly so the modal cannot shift them again.
+    const match = value.match(/T(\d{2}):(\d{2})/);
+    if (match) return `${match[1]}:${match[2]}`;
+    return 'Seharian';
+  };
+
+  const formatEventDate = (value: string) => {
+    const datePart = value.slice(0, 10);
+    const [year, month, day] = datePart.split('-').map(Number);
+    if (!year || !month || !day) return datePart;
+    return new Intl.DateTimeFormat('id-ID', {
       timeZone: 'Asia/Jakarta',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    }).format(date)
-    : null;
+      dateStyle: 'full',
+    }).format(new Date(Date.UTC(year, month - 1, day, 12)));
+  };
 
   return (
     <div className="flex h-full w-full flex-1 flex-col gap-3 overflow-hidden">
       {/* Calendar Top Action Header */}
-      <div className="glass-panel flex shrink-0 items-center justify-between gap-4 rounded-2xl px-5 py-3.5">
+      <div className="glass-panel flex shrink-0 items-center justify-between gap-2 rounded-2xl px-3 py-2.5 sm:gap-4 sm:px-5 sm:py-3.5">
         <div>
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-[#06b6d4] shadow-[0_0_0_4px_rgb(6_182_212_/_0.15)]" aria-hidden="true" />
             <span className="text-xs font-bold uppercase tracking-[0.14em] text-brand">Availability</span>
           </div>
-          <h2 className="mt-1 text-lg font-bold tracking-tight text-foreground">{t('calendar.title')}</h2>
+          <h2 className="mt-1 text-sm font-bold tracking-tight text-foreground sm:text-lg">{t('calendar.title')}</h2>
         </div>
-        <button type="button" onClick={handleOpenAppointmentModal} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-brand-dark hover:shadow-md">
+        <button type="button" onClick={handleOpenAppointmentModal} className="inline-flex min-h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-brand px-2.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-brand-dark hover:shadow-md sm:min-h-10 sm:gap-2 sm:px-4 sm:text-sm">
           <span className="text-lg leading-none">+</span>
           <span>{t('calendar.requestAppointment')}</span>
         </button>
@@ -162,14 +172,14 @@ export function CalendarView() {
 
       {selectedEvent && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#081637]/55 p-4 backdrop-blur-md"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-[#081637]/55 p-2 backdrop-blur-sm sm:items-center sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="event-detail-title"
           onClick={() => setSelectedEvent(null)}
         >
           <div
-            className="glass-panel-strong w-full max-w-md rounded-2xl p-6 shadow-2xl"
+            className="glass-panel-strong w-full max-w-md rounded-2xl p-4 shadow-2xl sm:p-6"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
@@ -182,7 +192,7 @@ export function CalendarView() {
               <button
                 type="button"
                 onClick={() => setSelectedEvent(null)}
-                className="rounded-lg px-2 py-1 text-lg font-bold text-muted transition hover:bg-surface-muted hover:text-foreground"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-xl font-bold text-muted transition hover:bg-surface-muted hover:text-foreground"
                 aria-label="Tutup detail event"
               >
                 ×
@@ -192,8 +202,11 @@ export function CalendarView() {
               <div className="rounded-xl bg-surface-muted/70 p-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted">Waktu WIB</p>
                 <p className="mt-1 font-semibold">
-                  {formatEventTime(selectedEvent.start)}
-                  {selectedEvent.end ? ` – ${formatEventTime(selectedEvent.end)}` : ''}
+                  {formatEventTime(selectedEvent.startStr)}
+                  {selectedEvent.endStr ? ` – ${formatEventTime(selectedEvent.endStr)}` : ''}
+                </p>
+                <p className="mt-1 text-xs text-muted">
+                  {formatEventDate(selectedEvent.startStr)}
                 </p>
               </div>
               {selectedEvent.extendedProps?.description && (

@@ -70,7 +70,7 @@ export default function AdminAnalytics() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-32 bg-gray-200 rounded animate-pulse" />
           ))}
@@ -94,10 +94,10 @@ export default function AdminAnalytics() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="admin-analytics space-y-5 sm:space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        <Card className="admin-chart-card">
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Appointments</CardTitle>
           </CardHeader>
@@ -105,7 +105,7 @@ export default function AdminAnalytics() {
             <div className="text-3xl font-bold">{data.summary.totalAppointments}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="admin-chart-card">
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
           </CardHeader>
@@ -113,7 +113,7 @@ export default function AdminAnalytics() {
             <div className="text-3xl font-bold text-yellow-500">{data.summary.pending}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="admin-chart-card">
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">Approved</CardTitle>
           </CardHeader>
@@ -121,7 +121,7 @@ export default function AdminAnalytics() {
             <div className="text-3xl font-bold text-green-500">{data.summary.approved}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="admin-chart-card">
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">Rejected</CardTitle>
           </CardHeader>
@@ -134,7 +134,7 @@ export default function AdminAnalytics() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Monthly Trends */}
-        <Card>
+        <Card className="admin-chart-card">
           <CardHeader>
             <CardTitle>Monthly Trends (Last 6 Months)</CardTitle>
           </CardHeader>
@@ -156,7 +156,7 @@ export default function AdminAnalytics() {
         </Card>
 
         {/* Status Distribution */}
-        <Card>
+        <Card className="admin-chart-card">
           <CardHeader>
             <CardTitle>Status Distribution</CardTitle>
           </CardHeader>

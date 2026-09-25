@@ -130,8 +130,8 @@ export function AppointmentModal({ isOpen, selectedDate, onClose }: AppointmentM
 
   return (
     <>
-      <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#081637]/55 p-4 backdrop-blur-md">
-        <div className="glass-panel-strong flex max-h-[90vh] w-full max-w-xl flex-col rounded-2xl p-6 shadow-2xl">
+      <div className="fixed inset-0 z-40 flex items-end justify-center bg-[#081637]/55 p-2 backdrop-blur-sm sm:items-center sm:p-4">
+        <div className="glass-panel-strong flex max-h-[92vh] w-full max-w-xl flex-col rounded-2xl p-4 shadow-2xl sm:max-h-[90vh] sm:p-6">
           <div className="flex items-center justify-between border-b border-border pb-4">
             <div>
               <h2 className="text-xl font-bold text-foreground">{t('form.title')}</h2>

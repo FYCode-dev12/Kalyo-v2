@@ -186,7 +186,7 @@ export function AppointmentRequestsPanel() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="admin-requests space-y-5 sm:space-y-6">
       <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-medium text-slate-500">Appointment management</p>
