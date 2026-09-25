@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import FullCalendar from '@fullcalendar/react';
+import type { EventClickArg } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -14,6 +15,7 @@ export function CalendarView() {
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [selectedEvent, setSelectedEvent] = useState<EventClickArg['event'] | null>(null);
   useEffect(() => {
     const handleResize = () => {
       const calendar = calendarRef.current?.getApi();
@@ -43,6 +45,20 @@ export function CalendarView() {
     setSelectedDate(today);
     setIsModalOpen(true);
   };
+
+  const handleEventClick = (arg: EventClickArg) => {
+    arg.jsEvent.preventDefault();
+    setSelectedEvent(arg.event);
+  };
+
+  const formatEventTime = (date: Date | null) => date
+    ? new Intl.DateTimeFormat('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(date)
+    : null;
 
   return (
     <div className="flex h-full w-full flex-1 flex-col gap-3 overflow-hidden">
@@ -85,6 +101,8 @@ export function CalendarView() {
           allDaySlot={true}
           selectable={true}
           dateClick={handleDateClick}
+          eventClick={handleEventClick}
+          nowIndicator={true}
           eventSources={[
             {
               events: async (fetchInfo, successCallback, failureCallback) => {
@@ -121,6 +139,59 @@ export function CalendarView() {
           expandRows={true}
         />
       </div>
+
+      {selectedEvent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#081637]/55 p-4 backdrop-blur-md"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="event-detail-title"
+          onClick={() => setSelectedEvent(null)}
+        >
+          <div
+            className="glass-panel-strong w-full max-w-md rounded-2xl p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand">Detail event</p>
+                <h3 id="event-detail-title" className="mt-1 text-xl font-bold text-foreground">
+                  {selectedEvent.title || 'Tanpa judul'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedEvent(null)}
+                className="rounded-lg px-2 py-1 text-lg font-bold text-muted transition hover:bg-surface-muted hover:text-foreground"
+                aria-label="Tutup detail event"
+              >
+                ×
+              </button>
+            </div>
+            <div className="space-y-3 pt-4 text-sm text-foreground">
+              <div className="rounded-xl bg-surface-muted/70 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted">Waktu WIB</p>
+                <p className="mt-1 font-semibold">
+                  {formatEventTime(selectedEvent.start)}
+                  {selectedEvent.end ? ` – ${formatEventTime(selectedEvent.end)}` : ''}
+                </p>
+              </div>
+              {selectedEvent.extendedProps?.description && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted">Deskripsi</p>
+                  <p className="mt-1 whitespace-pre-wrap">{selectedEvent.extendedProps.description}</p>
+                </div>
+              )}
+              {selectedEvent.extendedProps?.calendarName && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted">Kalender</p>
+                  <p className="mt-1">{selectedEvent.extendedProps.calendarName}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Appointment Request Modal */}
       <AppointmentModal

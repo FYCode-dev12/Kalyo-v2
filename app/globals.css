@@ -94,7 +94,10 @@ button:disabled { cursor: not-allowed; }
 .fc .fc-timegrid-axis-cushion { color: var(--muted); font-size: 0.68rem; }
 .fc .fc-daygrid-day-number { color: var(--ink-soft); font-size: 0.78rem; font-weight: 650; padding: 0.55rem; }
 .fc .fc-day-today .fc-daygrid-day-number { color: var(--brand-dark); }
-.fc .fc-event { border: 0; border-radius: 0.42rem; padding: 0.16rem 0.35rem; font-size: 0.72rem; font-weight: 650; box-shadow: 0 1px 2px rgb(15 23 42 / 0.08); }
+.fc .fc-event { border: 0; border-radius: 0.42rem; padding: 0.16rem 0.35rem; font-size: 0.72rem; font-weight: 650; box-shadow: 0 1px 2px rgb(15 23 42 / 0.08); cursor: pointer; }
+.fc .fc-event:hover { filter: brightness(1.04); box-shadow: 0 4px 12px rgb(37 99 235 / 0.18); }
+.fc .fc-now-indicator-line { border-color: #ef4444; border-width: 2px 0 0; }
+.fc .fc-now-indicator-arrow { border-bottom-color: #ef4444; border-top-color: #ef4444; }
 .fc .fc-highlight { background: rgb(15 118 110 / 0.12); }
 .fc .fc-scrollgrid { border-radius: 0.9rem; overflow: hidden; border-color: var(--border); }
 @media (max-width: 640px) {
