@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { createCalendarEvent } from '@/lib/google-calendar';
+import { createCalendarEvent, deleteCalendarEvent, fetchMergedEvents } from '@/lib/google-calendar';
 import { isAdminAuthenticated } from '@/lib/admin-auth';
 import { sendAppointmentStatusEmail } from '@/lib/email';
 import { writeAuditLog } from '@/lib/audit';
+import type { CalendarSourceConfig } from '@/types/calendar';
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -62,32 +63,90 @@ export async function PATCH(request: NextRequest) {
     let calendarSynced = false;
     if (status === 'APPROVED') {
       try {
-        const primaryCalendar = updatedRequest.calendarSourceId
+        const targetCalendar = updatedRequest.calendarSourceId
           ? await prisma.calendarSource.findFirst({ where: { id: updatedRequest.calendarSourceId, isBookingTarget: true } })
           : await prisma.calendarSource.findFirst({ where: { isBookingTarget: true } });
 
-        if (primaryCalendar) {
+        if (targetCalendar) {
           const startIso = new Date(updatedRequest.startDatetime).toISOString();
           const endIso = new Date(updatedRequest.endDatetime).toISOString();
 
+          // Re-check the target calendar for conflicts before inserting. A
+          // PENDING request can coexist with a newer Google event (added
+          // directly or approved after this request was created); approving
+          // without this check would push a double-booking into Google.
+          const calConfigs: CalendarSourceConfig[] = [{
+            id: targetCalendar.id,
+            googleCalendarId: targetCalendar.googleCalendarId,
+            displayName: targetCalendar.displayName,
+            color: targetCalendar.color,
+            showTitle: true,
+            showDescription: true,
+            isBookingTarget: true,
+          }];
+          const overlapping = await fetchMergedEvents(calConfigs, new Date(startIso), new Date(endIso), 'Asia/Jakarta');
+          const conflict = overlapping.some((evt) => {
+            const gStart = new Date(evt.start).getTime();
+            const gEnd = new Date(evt.end).getTime();
+            return new Date(startIso).getTime() < gEnd && new Date(endIso).getTime() > gStart;
+          });
+          if (conflict) {
+            // Roll back the claim: the slot is no longer free, so the request
+            // must stay pending rather than become APPROVED with no event.
+            await prisma.appointmentRequest.update({
+              where: { id: updatedRequest.id },
+              data: { status: 'PENDING', rejectReason: null },
+            });
+            await writeAuditLog({ action: 'APPOINTMENT_APPROVE_CONFLICT', entityType: 'AppointmentRequest', entityId: id, metadata: { status: 'PENDING' } });
+            return NextResponse.json(
+              { error: 'Slot waktu sudah terisi di kalender. Permintaan tetap pending.' },
+              { status: 409 }
+            );
+          }
+
           const eventId = await createCalendarEvent({
-            calendarId: primaryCalendar.googleCalendarId,
+            calendarId: targetCalendar.googleCalendarId,
             summary: `${updatedRequest.requesterName} - ${updatedRequest.purpose || 'Janji Temu'}`,
             description: `Email: ${updatedRequest.requesterEmail}\nPhone: ${updatedRequest.requesterPhone}\nApproved by admin`,
             startIso,
             endIso,
           });
 
-          await prisma.appointmentRequest.update({
-            where: { id: updatedRequest.id },
-            data: { googleEventId: eventId },
-          });
+          // Persisting googleEventId must not fail silently: if the DB write
+          // throws after the event exists, the next approval attempt would not
+          // find an eventId and would create a duplicate Google event. On
+          // failure, delete the just-created orphan event so the state stays
+          // consistent and the rollback below still applies.
+          try {
+            await prisma.appointmentRequest.update({
+              where: { id: updatedRequest.id },
+              data: { googleEventId: eventId },
+            });
+          } catch (persistErr) {
+            console.error('[Admin] Failed to persist googleEventId, deleting orphan event:', persistErr);
+            await deleteCalendarEvent(targetCalendar.googleCalendarId, eventId).catch((delErr) =>
+              console.error('[Admin] Failed to delete orphan Google event:', delErr)
+            );
+            throw persistErr;
+          }
           updatedRequest.googleEventId = eventId;
           console.log(`[Admin] Created event ${eventId} on Google Calendar for ${updatedRequest.id}`);
           calendarSynced = true;
         }
       } catch (calErr) {
         console.error('[Admin] Failed to sync with Google Calendar:', calErr);
+        // Compensation: without this the record would stay APPROVED with no
+        // calendar event, and no way for the admin to retry. Return it to
+        // PENDING so approving again re-runs the whole sync.
+        await prisma.appointmentRequest.update({
+          where: { id: updatedRequest.id },
+          data: { status: 'PENDING', rejectReason: null },
+        }).catch((rollbackErr) => console.error('[Admin] Failed to roll back approval:', rollbackErr));
+        await writeAuditLog({ action: 'APPOINTMENT_SYNC_FAILED', entityType: 'AppointmentRequest', entityId: id, metadata: { status: 'PENDING' } }).catch(() => undefined);
+        return NextResponse.json(
+          { error: 'Gagal sinkronisasi dengan Google Calendar. Permintaan tetap pending, silakan coba lagi.' },
+          { status: 502 }
+        );
       }
     }
 
