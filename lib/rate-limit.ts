@@ -15,8 +15,23 @@ const memoryStore = new Map<string, RateLimitEntry>();
 const WINDOW_MS = 60_000;
 const MAX_ENTRIES = 10_000;
 
+/**
+ * Client IP resolution.
+ *
+ * Client-supplied proxy headers must never be trusted blindly: on Vercel only
+ * the platform sets `x-forwarded-for`, and a forged `cf-connecting-ip` /
+ * `x-real-ip` would hand an attacker a fresh rate-limit key per request and
+ * bypass the booking/login limits entirely. We therefore only trust the
+ * left-most hop of `x-forwarded-for` (the one the edge actually received) and
+ * ignore other headers entirely.
+ */
 export function getClientIP(request: { headers: Headers }): string {
-  return request.headers.get('cf-connecting-ip') || request.headers.get('x-real-ip') || request.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1';
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  if (forwardedFor) {
+    const firstHop = forwardedFor.split(',')[0].trim();
+    if (firstHop) return firstHop;
+  }
+  return '127.0.0.1';
 }
 
 export async function checkRateLimit(request: { headers: Headers }, scope: string, limit: number): Promise<RateLimitResult> {

@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { isAdminAuthenticated } from '@/lib/admin-auth';
 
 export async function GET() {
+  // The previous version reported live DB reachability and latency to anyone,
+  // giving anonymous attackers a free oracle for probing infra health.
+  const authenticated = await isAdminAuthenticated();
+  if (!authenticated) {
+    return NextResponse.json({ status: 'ok' }, { status: 200 });
+  }
+
   const startedAt = Date.now();
   try {
     await prisma.$queryRaw`SELECT 1`;

@@ -21,6 +21,18 @@ export async function GET(request: NextRequest) {
     if (isNaN(startMin.getTime()) || isNaN(endMax.getTime())) {
       return NextResponse.json({ error: 'Invalid date format' }, { status: 400 });
     }
+    // Without bounds an anonymous request can ask for a century of events and
+    // exhaust the Google Calendar API quota for every other visitor.
+    if (endMax <= startMin) {
+      return NextResponse.json({ error: '"end" must be later than "start"' }, { status: 400 });
+    }
+    const MAX_RANGE_DAYS = 92;
+    if ((endMax.getTime() - startMin.getTime()) / 86_400_000 > MAX_RANGE_DAYS) {
+      return NextResponse.json(
+        { error: `Maksimal rentang tanggal adalah ${MAX_RANGE_DAYS} hari.` },
+        { status: 400 }
+      );
+    }
 
     const calendarSources = await prisma.calendarSource.findMany({
       where: { showOnPublic: true },

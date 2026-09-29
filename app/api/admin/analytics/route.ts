@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { isAdminAuthenticated } from '@/lib/admin-auth';
 
 interface MonthlyTrendRow {
   month: string | Date;
@@ -35,16 +36,10 @@ interface RevenueRow {
  * Returns aggregated statistics for admin dashboard
  */
 
-export async function GET(request: Request) {
-  const cookieHeader = request.headers.get('cookie') || '';
-  const cookies = new Map();
-  cookieHeader.split(';').forEach((pair) => {
-    const [key, value] = pair.split('=');
-    if (key && value) cookies.set(key.trim(), value);
-  });
-
-  const authCookie = cookies.get('admin_session');
-  if (!authCookie) {
+export async function GET() {
+  // The previous implementation only checked that a cookie existed; it never
+  // verified the JWT, so any opaque string was accepted as an admin session.
+  if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

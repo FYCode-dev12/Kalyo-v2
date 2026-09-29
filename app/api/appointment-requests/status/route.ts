@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 export async function GET(request: NextRequest) {
   try {
+    // The endpoint is reachable by anyone holding a status token, so it needs its
+    // own throttle bucket: without it an attacker can brute-force UUID tokens and
+    // read another guest's PII at line rate.
+    const rateLimit = await checkRateLimit(request, 'status-lookup', 30);
+    const limited = rateLimitResponse(rateLimit);
+    if (limited) return limited;
+
     const { searchParams } = new URL(request.url);
     const token = searchParams.get('token');
 
@@ -28,6 +36,8 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // Constant-time-ish generic failure: respond identically for a missing token
+    // and an invalid one so the endpoint cannot be used to confirm token validity.
     if (!requestRecord) {
       return NextResponse.json(
         { error: 'Permintaan janji temu tidak ditemukan.' },

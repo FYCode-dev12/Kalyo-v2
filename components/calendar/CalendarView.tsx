@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import FullCalendar from '@fullcalendar/react';
-import type { EventClickArg } from '@fullcalendar/core';
+import type { EventClickArg, EventSourceInput, EventInput } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -17,15 +17,21 @@ export function CalendarView() {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [selectedEvent, setSelectedEvent] = useState<EventClickArg['event'] | null>(null);
   const [publicCalendars, setPublicCalendars] = useState<Array<{ id: string; displayName: string; color: string; showOnPublic: boolean }>>([]);
+  // Desktop-first default; the resize handler below switches to day view on
+  // narrow screens. Kept stateless to avoid prop churn that refetches sources.
+  const initialView: 'timeGridDay' | 'timeGridWeek' = 'timeGridWeek';
   useEffect(() => {
     const handleResize = () => {
       const calendar = calendarRef.current?.getApi();
       if (!calendar) return;
 
       const isMobile = window.innerWidth < 768;
-      calendar.changeView(isMobile ? 'timeGridDay' : 'timeGridWeek');
-      calendar.setOption('slotMinTime', '00:00:00');
-      calendar.setOption('slotMaxTime', '24:00:00');
+      const desiredView = isMobile ? 'timeGridDay' : 'timeGridWeek';
+      // Only switch when the view actually differs; changeView() triggers a full
+      // refetch of every event source (each costing a network round-trip).
+      if (calendar.view.type !== desiredView) {
+        calendar.changeView(desiredView);
+      }
     };
 
     handleResize();
@@ -58,6 +64,40 @@ export function CalendarView() {
     arg.jsEvent.preventDefault();
     setSelectedEvent(arg.event);
   };
+
+  // FullCalendar diffs eventSources by array identity. A new array literal every
+  // render makes it refetch every source on each update, so memoize it.
+  const eventSources: EventSourceInput[] = useMemo(
+    () => [
+      {
+        events: async (fetchInfo: { startStr: string; endStr: string }, successCallback: (events: EventInput[]) => void, failureCallback: (error: Error) => void) => {
+          try {
+            const response = await fetch(`/api/events?start=${fetchInfo.startStr}&end=${fetchInfo.endStr}`);
+            const json = await response.json();
+            if (!response.ok) throw new Error(json.error);
+            successCallback((json.data || []) as EventInput[]);
+          } catch (err) {
+            console.error('[CalendarView] Fetch appointment events error:', err);
+            failureCallback(err as Error);
+          }
+        },
+      },
+      {
+        events: async (fetchInfo: { startStr: string; endStr: string }, successCallback: (events: EventInput[]) => void, failureCallback: (error: Error) => void) => {
+          try {
+            const response = await fetch(`/api/google-events?start=${fetchInfo.startStr}&end=${fetchInfo.endStr}`);
+            const json = await response.json();
+            if (!response.ok) throw new Error(json.error);
+            successCallback((json.data || []) as EventInput[]);
+          } catch (err) {
+            console.warn('[CalendarView] Google events unavailable:', err);
+            failureCallback(err as Error);
+          }
+        },
+      },
+    ],
+    []
+  );
 
   const formatEventTime = (value: string | null) => {
     if (!value) return null;
@@ -110,7 +150,7 @@ export function CalendarView() {
         <FullCalendar
           ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          initialView="timeGridWeek"
+          initialView={initialView}
           timeZone="Asia/Jakarta"
           locale={locale === 'id' ? 'id' : 'en'}
           headerToolbar={{
@@ -133,38 +173,7 @@ export function CalendarView() {
           dateClick={handleDateClick}
           eventClick={handleEventClick}
           nowIndicator={true}
-          eventSources={[
-            {
-              events: async (fetchInfo, successCallback, failureCallback) => {
-                try {
-                  const response = await fetch(
-                    `/api/events?start=${fetchInfo.startStr}&end=${fetchInfo.endStr}`
-                  );
-                  const json = await response.json();
-                  if (!response.ok) throw new Error(json.error);
-                  successCallback(json.data || []);
-                } catch (err) {
-                  console.error('[CalendarView] Fetch appointment events error:', err);
-                  failureCallback(err as Error);
-                }
-              },
-            },
-            {
-              events: async (fetchInfo, successCallback, failureCallback) => {
-                try {
-                  const response = await fetch(
-                    `/api/google-events?start=${fetchInfo.startStr}&end=${fetchInfo.endStr}`
-                  );
-                  const json = await response.json();
-                  if (!response.ok) throw new Error(json.error);
-                  successCallback(json.data || []);
-                } catch (err) {
-                  console.warn('[CalendarView] Google events unavailable:', err);
-                  failureCallback(err as Error);
-                }
-              },
-            },
-          ]}
+          eventSources={eventSources}
           height="100%"
           expandRows={true}
         />

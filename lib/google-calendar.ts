@@ -86,14 +86,16 @@ export async function fetchMergedEvents(
         const description = cal.showDescription ? item.description : null;
 
         return {
-          id: `${cal.googleCalendarId}_${item.id}`,
-          rawGoogleId: item.id || undefined,
+          // Use the stable DB id instead of the raw Google calendar id. `primary`
+          // resolves to the admin's personal Gmail address, so exposing it here
+          // would leak a private email to every anonymous visitor.
+          id: `${cal.id}_${item.id}`,
           title,
           description,
           start,
           end,
           allDay: isAllDay,
-          calendarId: cal.googleCalendarId,
+          calendarId: cal.id,
           calendarName: cal.displayName,
           color: cal.color,
           isMasked,

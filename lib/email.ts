@@ -28,6 +28,22 @@ export async function sendAppointmentStatusEmail(params: {
 }) {
   const { to, requesterName, status, startDatetime, endDatetime, purpose, rejectReason, referenceId } = params;
 
+  // Guest-controlled fields (name, purpose, reject reason) are interpolated into
+  // an HTML email body; escape them so a crafted name/purpose cannot inject
+  // markup or mail headers into the rendered message.
+  const escapeHtml = (value: string) =>
+    value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+  const safeName = escapeHtml(requesterName);
+  const safePurpose = purpose ? escapeHtml(purpose) : null;
+  const safeRejectReason = rejectReason ? escapeHtml(rejectReason) : null;
+  const safeReferenceId = escapeHtml(referenceId);
+
   // Format dates in Asia/Jakarta timezone
   const startDateStr = new Date(startDatetime).toLocaleString('id-ID', {
     timeZone: 'Asia/Jakarta',
@@ -43,24 +59,24 @@ export async function sendAppointmentStatusEmail(params: {
   const isApproved = status === 'APPROVED';
 
   const subject = isApproved
-    ? `[KALYO] Permintaan Janji Temu Disetujui (${referenceId})`
-    : `[KALYO] Permintaan Janji Temu Ditolak (${referenceId})`;
+    ? `[KALYO] Permintaan Janji Temu Disetujui (${safeReferenceId})`
+    : `[KALYO] Permintaan Janji Temu Ditolak (${safeReferenceId})`;
 
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
       <h2 style="color: ${isApproved ? '#1769aa' : '#d32f2f'}; margin-top: 0;">
         ${isApproved ? 'Janji Temu Disetujui' : 'Janji Temu Ditolak'}
       </h2>
-      <p>Halo <strong>${requesterName}</strong>,</p>
+      <p>Halo <strong>${safeName}</strong>,</p>
       <p>
-        Status permintaan janji temu Anda dengan kode referensi <code>${referenceId}</code> telah diperbarui.
+        Status permintaan janji temu Anda dengan kode referensi <code>${safeReferenceId}</code> telah diperbarui.
       </p>
 
       <div style="background-color: #f5f5f5; padding: 15px; border-radius: 6px; margin: 20px 0;">
         <p style="margin: 5px 0;"><strong>Waktu:</strong> ${startDateStr} - ${endDateStr} WIB</p>
-        ${purpose ? `<p style="margin: 5px 0;"><strong>Keperluan:</strong> ${purpose}</p>` : ''}
+        ${safePurpose ? `<p style="margin: 5px 0;"><strong>Keperluan:</strong> ${safePurpose}</p>` : ''}
         <p style="margin: 5px 0;"><strong>Status:</strong> <span style="color: ${isApproved ? '#2e7d32' : '#c62828'}; font-weight: bold;">${status}</span></p>
-        ${!isApproved && rejectReason ? `<p style="margin: 5px 0; color: #d32f2f;"><strong>Alasan Penolakan:</strong> ${rejectReason}</p>` : ''}
+        ${!isApproved && safeRejectReason ? `<p style="margin: 5px 0; color: #d32f2f;"><strong>Alasan Penolakan:</strong> ${safeRejectReason}</p>` : ''}
       </div>
 
       ${isApproved ? `

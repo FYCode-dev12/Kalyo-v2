@@ -79,7 +79,6 @@ export function AppointmentModal({ isOpen, selectedDate, onClose }: AppointmentM
   useEffect(() => {
     if (!isOpen) return;
     // Initial modal synchronization intentionally loads remote public settings.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchCalendars().catch((error) => setSubmitError(error.message));
     reset({
       termsAccepted: false,
