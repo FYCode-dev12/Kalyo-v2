@@ -26,8 +26,8 @@ client.on('error', (e) => console.log('✗ Error 5432:', e.message));
 
 ## Langkah 2: Gunakan koneksi pooling di `.env.local`
 ```bash
-DATABASE_URL="postgresql://postgres.hbbteaqfhuqjyfbuklcv:febrianyo12@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres"
-DIRECT_URL="postgresql://postgres.hbbteaqfhuqjyfbuklcv:febrianyo12@db.hbbteaqfhuqjyfbuklcv.supabase.co:5432/postgres"
+DATABASE_URL="postgresql://postgres.hbbteaqfhuqjyfbuklcv:[PASSWORD-DATABASE]@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres"
+DIRECT_URL="postgresql://postgres.hbbteaqfhuqjyfbuklcv:[PASSWORD-DATABASE]@db.hbbteaqfhuqjyfbuklcv.supabase.co:5432/postgres"
 ```
 
 ## Langkah 3: Jalankan Migrasi
