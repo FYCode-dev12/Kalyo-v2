@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
     "sync:calendar": "tsx scripts/sync-calendar.ts",

@@ -46,6 +46,9 @@ jobs:
       - name: Type Check
         run: pnpm typecheck
 
+      - name: Unit Tests
+        run: pnpm test
+
       - name: Next.js Build Check
         env:
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/test?schema=public"
