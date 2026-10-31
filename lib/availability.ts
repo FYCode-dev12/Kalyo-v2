@@ -7,6 +7,17 @@ import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 const DEFAULT_TZ = 'Asia/Jakarta';
 
 /**
+ * Google returns all-day bounds as bare dates ("2026-11-09"). `new Date()` reads those
+ * as UTC midnight (07:00 WIB), so read them as midnight in the calendar's time zone.
+ */
+function toEventTime(value: string, allDay: boolean | undefined, timeZone: string): number {
+  if (allDay && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return fromZonedTime(`${value}T00:00:00`, timeZone).getTime();
+  }
+  return new Date(value).getTime();
+}
+
+/**
  * Calculates available time slots for a specific date (YYYY-MM-DD).
  */
 export async function getAvailableSlots(params: AvailabilityParams): Promise<{
@@ -149,8 +160,8 @@ export async function getAvailableSlots(params: AvailabilityParams): Promise<{
     // Check overlap with Google Calendar events
     if (available) {
       for (const gEvent of googleEvents) {
-        const gStart = new Date(gEvent.start).getTime();
-        const gEnd = new Date(gEvent.end).getTime();
+        const gStart = toEventTime(gEvent.start, gEvent.allDay, timeZone);
+        const gEnd = toEventTime(gEvent.end, gEvent.allDay, timeZone);
         const sStart = slotStartDate.getTime();
         const sEnd = slotEndDate.getTime();
 

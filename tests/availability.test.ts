@@ -266,14 +266,10 @@ describe('getAvailableSlots: busy events', () => {
     assert.ok(slots.every((s) => !s.available));
   });
 
-  // KNOWN BUG (left unfixed on purpose, tests only): Google returns all-day
-  // bounds as bare dates ("2026-11-09"), and lib/availability.ts parses them
-  // with `new Date(...)`, which reads them as UTC midnight = 07:00 in Jakarta.
-  // An all-day event therefore only blocks 07:00 -> 07:00 the next day, so with
-  // working hours that start before 07:00 the early slots stay bookable.
+  // Regression: all-day bounds are bare dates and used to be read as UTC
+  // midnight (07:00 WIB), leaving slots before 07:00 bookable.
   it(
     'blocks slots before 07:00 Jakarta time on an all-day event',
-    { skip: 'known bug: all-day event dates are parsed as UTC midnight (07:00 WIB)' },
     async () => {
       db.businessRule = {
         workStartTime: '06:00',
